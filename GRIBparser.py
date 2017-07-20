@@ -1,6 +1,7 @@
 import struct
 import datetime
 import logging
+from GRIBtables import *
 #logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -8,29 +9,7 @@ logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 logger.addHandler(ch)
-
-disciplines = {0:"Meteorological", 1:"Hydrological", 2:"Land Surface", 3:"Space", 4:"Space (Validation)", 10:"Oceanographic"}
-
-refTimeSignificances = {0:"Analysis", 1:"Start of forecast", 2:"Verifying time of forecast", 3:"Observation time", 255:None}
-
-productionStatuses = {0:"Operational", 1:"Operational test", 2:"Research", 3:"Re-analysis", 4:"TIGGE", 5:"TIGGE test", 6:"S2S operational", 7:"S2S test", 8:"UERRA", 9:"UERRA test", 255:None}
-
-dataTypes = {0:"Analysis", 1:"Forecast", 2:"Analysis and forecast", 3:"Control forecast", 4:"Perturbed forecast", 5:"Control and perturbed forecast", 6:"Processed satellite observations", 7:"Processed RADAR observations", 8:"Event probability", 192:"Experimental", 255:None}
-
-gridDefTemplates = {0:"Latitude/longitude", 1:"Rotated latitude/longitude", 2:"Stretched latitude/longitude", 3:"Rotated and stretched latitude/longitude", 4:"Variable resolution latitude/longitude", 5:"Variable resolution rotated latitude/longitude", 10:"Mercator", 12:"Transverse mercator", 20:"Polar stereographic projection", 30:"Lambert conformal", 31:"Albers equal area", 40:"Gaussian latitude/longitude", 41:"Rotated Gaussian latitude/longitude", 42:"Stretched Gaussian latitude/longitude", 43:"Rotated and stretched Gaussian latitude/longitude", 50:"Spherical harmonic coefficients", 51:"Rotated spherical harmonic coefficients", 52:"Stretched spherical harmonic coefficients", 53:"Rotated and stretched spherical harmonic coefficients", 90:"Space view perspective or orthographic", 100:"Triangular grid based on an icosahedron", 101:"General unstructured grid", 110:"Equatorial azimuthal equidistant projection", 120:"Azimuth-range projection", 140:"Lambert azimuthal equal-area projection", 204:"Curvilinear orthogonal grids", 1000:"Cross-section grid with points equally spaced on the horizontal", 1100:"Hovmoller grid with points equally spaced on the horizontal", 1200:"Time section grid", 32768:"Rotated latitude/longitude (Arakawa staggered e-grid)", 32769:"Rotated latitude/longitude (Arakawa non-e staggered grid"}
-
-
-earthShapes = {0:"Earth assumed spherical with radius = 6,367,470.0 m",
-    1:"Earth assumed spherical with radius specified (in m) by data producer",
-    2:"Earth assumed oblate spheriod with size as determined by IAU in 1965 (major axis = 6,378,160.0 m, minor axis = 6,356,775.0 m, f = 1/297.0)",
-    3:"Earth assumed oblate spheriod with major and minor axes specified (in km) by data producer",
-    4:"Earth assumed oblate spheriod as defined in IAG-GRS80 model (major axis = 6,378,137.0 m, minor axis = 6,356,752.314 m, f = 1/298.257222101)",
-    5:"Earth assumed represented by WGS84 (as used by ICAO since 1998) (Uses IAG-GRS80 as a basis)",
-    6:"Earth assumed spherical with radius = 6,371,229.0 m",
-    7:"Earth assumed oblate spheroid with major and minor axes specified (in m) by data producer",
-    8:"Earth model assumed spherical with radius 6,371,200 m, but the horizontal datum of the resulting Latitude/Longitude field is the WGS84 reference frame",
-    9:"Earth represented by the OSGB 1936 Datum, using the Airy_1830 Spheroid, the Greenwich meridian as 0 Longitude, the Newlyn datum as mean sea level, 0 height"
-    }
+    
 def parseGRIBfile(filepath):
     fob = open(filepath, 'rb')
     content = fob.read()
@@ -43,7 +22,7 @@ def parseGRIBfile(filepath):
         if chunk:
             logger.warning("Parsing GRIB #%d of %d"%(i, len(gribs)))
             parseGRIB("GRIB"+chunk)
-            break #debugging
+            #break #debugging
 
 def convertlatlon(val) :
     signval = 1
@@ -57,6 +36,12 @@ def convertlatlon(val) :
     return signed
 
 def parseGRIB(content):
+    gribData = {
+        "isobar":None,
+        "param":None,
+        "valuetime":None
+        }
+    parameter = None
     disciplineIdx = ord(content[6])
     discipline = disciplines.get(disciplineIdx, None)
     if discipline:
@@ -67,9 +52,9 @@ def parseGRIB(content):
     GRIBedition = ord(content[7])
     if GRIBedition != 2:
         logger.error("Invalid GRIB edition (%d)!"%GRIBedition)
-    logger.info("GRIB edition: %d"%GRIBedition)
+    logger.debug("GRIB edition: %d"%GRIBedition)
     GRIBlength = struct.unpack('>Q', content[8:16])[0]
-    logger.info("GRIB length: %d"%GRIBlength)
+    logger.debug("GRIB length: %d"%GRIBlength)
     
     content=content[16:]
     while len(content) > 0:
@@ -79,7 +64,7 @@ def parseGRIB(content):
         sectNum = ord(content[4])
         #logger.debug( "Section number:", sectNum
         if sectNum == 1:
-            logger.info("\t\tIdentification section...")
+            logger.debug("\t\tIdentification section...")
             origCenter = struct.unpack('>H', content[5:7])[0]
             logger.debug( "\t\tOriginating center: %d"%origCenter)
             origSubCenter = struct.unpack('>H', content[7:9])[0]
@@ -108,7 +93,7 @@ def parseGRIB(content):
             dataType = dataTypes.get(dataTypeIdx, None)
             logger.debug( "\t\tType of processed data: %s"%dataType)
         elif sectNum == 3:
-            logger.info("\t\tGrid definition section...")
+            logger.debug("\t\tGrid definition section...")
             defSourceIdx = ord(content[5])
             if defSourceIdx != 0:
                 logger.error("Grid defined by originating center")
@@ -164,33 +149,146 @@ def parseGRIB(content):
                 lastPointLon = struct.unpack('>L', content[59:63])[0]
                 lastPointLon = convertlatlon(lastPointLon)
                 logger.debug("\t\tLast point longitude: %f"%lastPointLon)
-                assert ord(content[71]) == 64
+                assert ord(content[71]) == 64 #Points in the first row or column scan W to E, Points in the first row or column scan S to N, adjacent points in W/E are consecutive
             else:
                 logger.error("\tGrid handling not implemented for template: %s. Aborting."%gridDefTemp)
                 return
             
             
         elif sectNum == 4:
-            logger.info( "\t\tProduct definition section...")
+            logger.debug( "\t\tProduct definition section...")
+            numCoordValues = struct.unpack('>H', content[5:7])[0]
+            assert numCoordValues == 0
+            prodDefTempIdx = struct.unpack('>H', content[7:9])[0]
+            prodDefTemp = prodDefTemplates.get(prodDefTempIdx, None)
+            if prodDefTemp:
+                logger.debug("\t\tProduct definition template: %s"%prodDefTemp)
+            else:
+                logger.error("\tProduct definition template %d not implemented. Aborting."%prodDefTempIdx)
+                return
+            paramCatIdx = ord(content[9])
+            disciplineCategories = parameterCategories.get(disciplineIdx, None)
+            if discipline:
+                paramCategory = disciplineCategories.get(paramCatIdx, None)
+                if paramCategory:
+                    logger.debug("\t\tParameter category: %s"%paramCategory["Category Name"])
+                    parameterIdx = ord(content[10])
+                    parameter = paramCategory.get(parameterIdx, None)
+                    if parameter:
+                        logger.debug("\t\tParameter: %s"%parameter)
+                        gribData["param"] = parameter
+                    else:
+                        logger.error("\tParameter %d for category %s not implemented. Aborting."%(parameterIdx, paramCategory["Category Name"]))
+                        return
+                else:
+                    logger.error("\tParameter category %d not implemented. Aborting."%paramCatIdx)
+                    return
+            else:
+                logger.error("\tParameter categories for discipline %d not implemented. Aborting."%disciplineIdx)
+                return
+            genProcIdx = ord(content[11])
+            genProc = generatingProcesses.get(genProcIdx, None)
+            if genProc:
+                logger.debug("\t\tGenerating process: %s"%genProc)
+            assert ord(content[17]) ==1
+            forecastHour = struct.unpack('>L',content[18:22])
+            logger.debug("\t\tForecast hour: %d"%forecastHour)
+            print ord(content[22])
+            assert ord(content[22]) == 100
+            assert ord(content[23]) == 0
+            mbPress = struct.unpack('>L', content[24:28])[0]
+            mbPress /= 100.
+            logger.debug("\t\tPressure (mb): %f"%mbPress)
+            gribData["isobar"] = int(mbPress)
+            assert ord(content[28]) == 255
             
         elif sectNum == 5:
-            logger.info("\t\tData representation section...")
+            logger.debug("\t\tData representation section...")
+            numDataPoints = struct.unpack('>L', content[5:9])[0]
+            logger.debug("\t\tNumber of data points: %d"%numDataPoints)
+            dataRepTempIdx = struct.unpack('>H', content[9:11])[0]
+            dataRepTemp = dataRepresentationTemplates.get(dataRepTempIdx, None)
+            if dataRepTemp:
+                logger.debug("\t\tData representation template: %s"%dataRepTemp)
+            else:
+                logger.error("\tData representation template not found for index %d"%dataRepTempIdx)
+            if dataRepTempIdx != 0:
+                logger.error("\tData representation template \"%s\" not implemented. Aborting."%dataRepTemp)
+                return
+            referenceValue = struct.unpack('>f', content[11:15])[0]
+            logger.debug("\t\tReference value (R): %d"%referenceValue)
             
+            binaryScaleFactor = struct.unpack('>H', content[15:17])[0]
+            logger.debug("\t\tBinary scale factor (E): %d"%binaryScaleFactor)
+            if (binaryScaleFactor & 0x8000) != 0:
+                logger.warning("\t\tBSF might be negative!")
+            
+            decimalScaleFactor = struct.unpack('>H', content[17:19])[0]
+            logger.debug("\t\tDecimal scale factor (D): %d"%decimalScaleFactor)
+            if (decimalScaleFactor & 0x8000) != 0:
+                logger.warning("\t\tDSF might be negative!")
+            
+            bitsPerPoint = ord(content[19])
+            logger.debug("\t\tBits per datapoint: %d"%bitsPerPoint)
+                
         elif sectNum == 6:
-            logger.info("\t\tBit map section...")
-            
+            logger.debug("\t\tBit map section...")
+            assert ord(content[5]) == 255
         elif sectNum == 7:
-            logger.info("\t\tData section...")
+            logger.debug("\t\tData section...")
+            blob = content[5:sectLength]
+            #convert blob to binary array
+            binArray = []
+            dataPoints = []
+            for char in blob:
+                binArray += [(ord(char)>>n)&1 for n in range(0,8)[::-1]]
+            for i in range(numDataPoints):
+                thisPointBinArray = binArray[i*bitsPerPoint:(i+1)*bitsPerPoint]
+                thisPoint = 0
+                for binVal in thisPointBinArray[::-1]:
+                    #print thisPoint, binVal,
+                    thisPoint |= binVal
+                    thisPoint = thisPoint << 1
+                    #print thisPoint
+                thisPoint = thisPoint >> 1
+                adjustedPoint = (referenceValue + float(thisPoint) * 2**binaryScaleFactor) / 10**decimalScaleFactor
+                dataPoints.append(adjustedPoint)
+            #print dataPoints
             
+            #maxPoint = max(dataPoints)
+            #minPoint = min(dataPoints)
+            #scalingFactor = 10/(maxPoint-minPoint)
+            #scaledPoints = [(x-minPoint)*scalingFactor for x in dataPoints]
+            #print [round(x, 1) for x in dataPoints]
+            fob = open("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\testdata.csv", 'w')
+            for row in [list(x) for x in zip(*[iter(dataPoints)]*pointsAlongParallel)[::-1]]:
+                #print [round(x, 1) for x in row]
+                fob.write(','.join([str(round(x, 1)) for x in row]))
+                fob.write('\r\n')
+            fob.close()
+            
+            #currentLat = firstPointLat
+            #latDelta = (lastPointLat - firstPointLat) / (pointsAlongMeridian-1)
+            #longDelta = (lastPointLon - firstPointLon) / (pointsAlongParallel-1)
+            #latLonTuples = []
+            #dataPointIndex = 0
+            #for y in range(pointsAlongMeridian):
+            #    currentLon = firstPointLon
+            #    for x in range(pointsAlongParallel):
+            #        latLonTuples.append((currentLat, currentLon, dataPoints[dataPointIndex]))
+            #        dataPointIndex += 1
+            #        currentLon += longDelta
+            #    currentLat += latDelta
+                    
         else:   
             logger.error("\tError! Unknown section number:", sectNum)
             #logger.debug( content[:20]
             
-        #logger.debug( '\n'
         content = content[sectLength:]
         if content[:4] == "7777":
+            print gribData
             break
 
 
 if __name__=="__main__":
-    parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2full.0p50.f009")
+    parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f010")

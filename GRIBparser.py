@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
+ch.setLevel(logging.INFO)
 logger.addHandler(ch)
     
 def parseGRIBfile(filepath):
@@ -39,7 +39,9 @@ def parseGRIB(content):
     gribData = {
         "isobar":None,
         "param":None,
-        "valuetime":None
+        "valuetime":None,
+        "xScanDir": None,
+        "yScanDir": None,
         }
     parameter = None
     disciplineIdx = ord(content[6])
@@ -149,7 +151,16 @@ def parseGRIB(content):
                 lastPointLon = struct.unpack('>L', content[59:63])[0]
                 lastPointLon = convertlatlon(lastPointLon)
                 logger.debug("\t\tLast point longitude: %f"%lastPointLon)
-                assert ord(content[71]) == 64 #Points in the first row or column scan W to E, Points in the first row or column scan S to N, adjacent points in W/E are consecutive
+                assert ord(content[71]) & 0xC0 == 0 #adjacent points in W/E are consecutive
+                if ord(content[71]) & 64 == 64: #Points in the first row or column scan W to E, Points in the first row or column scan S to N, adjacent points in W/E are consecutive
+                    gribData["yScanDir"] = 1 #Points in the first row or column scan S to N
+                else:
+                    gribData["yScanDir"] = -1 #Points in the first row or column scan N to S
+                if ord(content[71]) & 128 == 128:
+                    gribData["xScanDir"] = -1 #Points in the first row or column scan E to W
+                else:
+                    gribData["xScanDir"] = 1 #Points in the first row or column scan W to E
+
             else:
                 logger.error("\tGrid handling not implemented for template: %s. Aborting."%gridDefTemp)
                 return
@@ -193,8 +204,7 @@ def parseGRIB(content):
             assert ord(content[17]) ==1
             forecastHour = struct.unpack('>L',content[18:22])
             logger.debug("\t\tForecast hour: %d"%forecastHour)
-            print ord(content[22])
-            assert ord(content[22]) == 100
+            #assert ord(content[22]) == 100
             assert ord(content[23]) == 0
             mbPress = struct.unpack('>L', content[24:28])[0]
             mbPress /= 100.
@@ -260,25 +270,34 @@ def parseGRIB(content):
             #scalingFactor = 10/(maxPoint-minPoint)
             #scaledPoints = [(x-minPoint)*scalingFactor for x in dataPoints]
             #print [round(x, 1) for x in dataPoints]
-            fob = open("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\testdata.csv", 'w')
-            for row in [list(x) for x in zip(*[iter(dataPoints)]*pointsAlongParallel)[::-1]]:
-                #print [round(x, 1) for x in row]
-                fob.write(','.join([str(round(x, 1)) for x in row]))
-                fob.write('\r\n')
-            fob.close()
+            #fob = open("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\testdata.csv", 'w')
+            #for row in [list(x) for x in zip(*[iter(dataPoints)]*pointsAlongParallel)[::-1]]:
+            #    #print [round(x, 1) for x in row]
+            #    fob.write(','.join([str(round(x, 1)) for x in row]))
+            #    fob.write('\r\n')
+            #fob.close()
             
-            #currentLat = firstPointLat
-            #latDelta = (lastPointLat - firstPointLat) / (pointsAlongMeridian-1)
-            #longDelta = (lastPointLon - firstPointLon) / (pointsAlongParallel-1)
-            #latLonTuples = []
-            #dataPointIndex = 0
-            #for y in range(pointsAlongMeridian):
-            #    currentLon = firstPointLon
-            #    for x in range(pointsAlongParallel):
-            #        latLonTuples.append((currentLat, currentLon, dataPoints[dataPointIndex]))
-            #        dataPointIndex += 1
-            #        currentLon += longDelta
-            #    currentLat += latDelta
+            if gribData["yScanDir"] == 1:
+                currentLat = firstPointLat
+            elif gribData["yScanDir"] == -1:
+                currentLat = lastPointLat
+            
+            latDelta = (lastPointLat - firstPointLat) / (pointsAlongMeridian-1)
+            longDelta = (lastPointLon - firstPointLon) / (pointsAlongParallel-1)
+            latLonTuples = []
+            dataPointIndex = 0
+            for y in range(pointsAlongMeridian):
+            
+                if gribData["xScanDir"] == 1:
+                    currentLon = firstPointLon
+                elif gribData["xScanDir"] == -1:
+                    currentLon = lastPointLon
+                    
+                for x in range(pointsAlongParallel):
+                    latLonTuples.append((currentLat, currentLon, dataPoints[dataPointIndex]))
+                    dataPointIndex += 1
+                    currentLon += gribData["xScanDir"]*longDelta
+                currentLat += gribData["yScanDir"]*latDelta
                     
         else:   
             logger.error("\tError! Unknown section number:", sectNum)
@@ -291,4 +310,6 @@ def parseGRIB(content):
 
 
 if __name__=="__main__":
-    parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f010")
+    #parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f010")
+    parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f001")
+    

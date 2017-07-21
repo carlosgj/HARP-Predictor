@@ -38,6 +38,7 @@ def updateDataset(valueTime):
                 VGRD FLOAT, \
                 PRIMARY KEY (ValueTime, Resolution, Latitude, Longitude, Isobar) \
                 )"%presumptiveTableName)
+            c.execute("INSERT INTO setIndex (tableName, predictionTime) VALUES (%s, %s)",(presumptiveTableName, latestAvailable))
         else:
             raise
     #Check if desired value time already exists in table 
@@ -50,6 +51,9 @@ def updateDataset(valueTime):
         print url
         print "Downloading GRIB..."
         data = downloadFile(url)
+	#fob = open('datafile', 'rb')
+	#data=fob.read()
+	#fob.close()
         print "Download complete."
         #print data
         print "Parsing GRIB..."
@@ -64,16 +68,40 @@ def updateDataset(valueTime):
             print "Ingesting data from GRIB %d of %d..."%(i, len(processedData))
             metadata = grib[0]
             tuples = grib[1]
-            dbTuples = []
             for tuple in tuples:
-                dbTuples.append((metadata["valuetime"], tuple[0], tuple[1], metadata["isobar"], tuple[2], tuple[2]))
-            c.executemany("INSERT INTO %s (\
-            ValueTime, Resolution, Latitude, Longitude, Isobar, %s\
-            ) VALUES \
-            (%%s, '0.25', %%s, %%s, %%s, %%s)\
-            ON DUPLICATE KEY UPDATE %s=%%s"%(presumptiveTableName, metadata["param"], metadata["param"]), 
-            dbTuples)
+            	sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '0.25', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
+		#print sqlString
+		c.execute(sqlString)
         db.commit()
+
+        url = generateURL(35, 33.5, -120, -117, valueTime, latestAvailable, 0.50)
+        print url
+        print "Downloading GRIB..."
+        data = downloadFile(url)
+        #fob = open('datafile', 'rb')
+        #data=fob.read()
+        #fob.close()
+        print "Download complete."
+        #print data
+        print "Parsing GRIB..."
+        processedData = GRIBparser.parseGRIBdata(data)
+        print "Parsing complete."
+        #print processedData
+        tupleCount = 0
+        for grib in processedData:
+            tupleCount += len(grib[1])
+        print "Processing a total of %d tuples..."%tupleCount
+        for i, grib in enumerate(processedData):
+            print "Ingesting data from GRIB %d of %d..."%(i, len(processedData))
+            metadata = grib[0]
+            tuples = grib[1]
+            for tuple in tuples:
+                sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '0.50', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
+                #print sqlString
+                c.execute(sqlString)
+        db.commit()
+
+
     return
     
 def findLatestPrediction():

@@ -14,6 +14,11 @@ def parseGRIBfile(filepath):
     fob = open(filepath, 'rb')
     content = fob.read()
     fob.close()
+    return parseGRIBdata(content)
+    
+def parseGRIBdata(content):
+    
+    results = [] #list of ({GRIBdata}, [tuples]) tuples
     if not content[0:4]=="GRIB":
         logger.error("Invalid file: does not start with \"GRIB\".")
         return
@@ -21,8 +26,9 @@ def parseGRIBfile(filepath):
     for i, chunk in enumerate(gribs):
         if chunk:
             logger.warning("Parsing GRIB #%d of %d"%(i, len(gribs)))
-            parseGRIB("GRIB"+chunk)
+            results.append(parseGRIB("GRIB"+chunk))
             #break #debugging
+    return results
 
 def convertlatlon(val) :
     signval = 1
@@ -57,7 +63,8 @@ def parseGRIB(content):
     logger.debug("GRIB edition: %d"%GRIBedition)
     GRIBlength = struct.unpack('>Q', content[8:16])[0]
     logger.debug("GRIB length: %d"%GRIBlength)
-    
+    latLonTuples = []
+    refTime = None
     content=content[16:]
     while len(content) > 0:
         logger.debug("\tParsing section...")
@@ -151,7 +158,7 @@ def parseGRIB(content):
                 lastPointLon = struct.unpack('>L', content[59:63])[0]
                 lastPointLon = convertlatlon(lastPointLon)
                 logger.debug("\t\tLast point longitude: %f"%lastPointLon)
-                assert ord(content[71]) & 0xC0 == 0 #adjacent points in W/E are consecutive
+                assert ord(content[71]) & 0x3F == 0 #adjacent points in W/E are consecutive
                 if ord(content[71]) & 64 == 64: #Points in the first row or column scan W to E, Points in the first row or column scan S to N, adjacent points in W/E are consecutive
                     gribData["yScanDir"] = 1 #Points in the first row or column scan S to N
                 else:
@@ -202,8 +209,10 @@ def parseGRIB(content):
             if genProc:
                 logger.debug("\t\tGenerating process: %s"%genProc)
             assert ord(content[17]) ==1
-            forecastHour = struct.unpack('>L',content[18:22])
+            forecastHour = struct.unpack('>L',content[18:22])[0]
             logger.debug("\t\tForecast hour: %d"%forecastHour)
+            interval = datetime.timedelta(hours=forecastHour)
+            gribData["valuetime"]=refTime+interval
             #assert ord(content[22]) == 100
             assert ord(content[23]) == 0
             mbPress = struct.unpack('>L', content[24:28])[0]
@@ -284,7 +293,7 @@ def parseGRIB(content):
             
             latDelta = (lastPointLat - firstPointLat) / (pointsAlongMeridian-1)
             longDelta = (lastPointLon - firstPointLon) / (pointsAlongParallel-1)
-            latLonTuples = []
+            
             dataPointIndex = 0
             for y in range(pointsAlongMeridian):
             
@@ -298,6 +307,7 @@ def parseGRIB(content):
                     dataPointIndex += 1
                     currentLon += gribData["xScanDir"]*longDelta
                 currentLat += gribData["yScanDir"]*latDelta
+            
                     
         else:   
             logger.error("\tError! Unknown section number:", sectNum)
@@ -305,11 +315,13 @@ def parseGRIB(content):
             
         content = content[sectLength:]
         if content[:4] == "7777":
-            print gribData
-            break
+            return (gribData, latLonTuples)
+            
 
 
 if __name__=="__main__":
     #parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f010")
-    parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f001")
+    results = parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t18z.pgrb2.0p25.f026")
+    for foo in results:
+        print foo[0]
     

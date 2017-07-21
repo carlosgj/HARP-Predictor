@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 import urllib2
 from ftplib import FTP
+import MySQLdb
+import _mysql_exceptions
+import GRIBparser
 
 def roundHalf(n):
     return str(round(n * 2) / 2)
@@ -9,6 +12,70 @@ def pad3(s):
     retval = "000"+str(s)
     return retval[-3:]
 
+def updateDataset(valueTime):
+    #Table name format: gfsYYYYMMDDHH (of prediction)
+    db=MySQLdb.connect(host='delta.carlosgj.org', user='guest', passwd='',db="test_dataset")
+    c = db.cursor()
+    c.execute("USE test_dataset")
+    #Get time of latest NOMADS prediction
+    latestAvailable = findLatestPrediction()
+    presumptiveTableName = 'gfs'+latestAvailable.strftime('%Y%m%d%H')
+    #print "Table should be called:", presumptiveTableName
+    try:
+        c.execute("SELECT 1 FROM %s LIMIT 1"%presumptiveTableName)
+    except _mysql_exceptions.ProgrammingError as e:
+        if e[0] == 1146:
+            #Table does not exist
+            c.execute("CREATE TABLE %s (\
+                ValueTime DATETIME, \
+                Resolution ENUM('0.25', '0.50'), \
+                Latitude FLOAT, \
+                Longitude FLOAT, \
+                Isobar SMALLINT, \
+                HGT MEDIUMINT, \
+                TMP FLOAT, \
+                UGRD FLOAT, \
+                VGRD FLOAT, \
+                PRIMARY KEY (ValueTime, Resolution, Latitude, Longitude, Isobar) \
+                )"%presumptiveTableName)
+        else:
+            raise
+    #Check if desired value time already exists in table 
+    c.execute("SELECT COUNT(*) FROM %s WHERE ValueTime=%%s"%presumptiveTableName, (valueTime,))
+    if c.fetchone()[0] >0:
+        #Data already exists
+        return
+    else:
+        url = generateURL(35, 33.5, -120, -117, valueTime, latestAvailable, 0.25)
+        print url
+        print "Downloading GRIB..."
+        data = downloadFile(url)
+        print "Download complete."
+        #print data
+        print "Parsing GRIB..."
+        processedData = GRIBparser.parseGRIBdata(data)
+        print "Parsing complete."
+        #print processedData
+        tupleCount = 0
+        for grib in processedData:
+            tupleCount += len(grib[1])
+        print "Processing a total of %d tuples..."%tupleCount
+        for i, grib in enumerate(processedData):
+            print "Ingesting data from GRIB %d of %d..."%(i, len(processedData))
+            metadata = grib[0]
+            tuples = grib[1]
+            dbTuples = []
+            for tuple in tuples:
+                dbTuples.append((metadata["valuetime"], tuple[0], tuple[1], metadata["isobar"], tuple[2], tuple[2]))
+            c.executemany("INSERT INTO %s (\
+            ValueTime, Resolution, Latitude, Longitude, Isobar, %s\
+            ) VALUES \
+            (%%s, '0.25', %%s, %%s, %%s, %%s)\
+            ON DUPLICATE KEY UPDATE %s=%%s"%(presumptiveTableName, metadata["param"], metadata["param"]), 
+            dbTuples)
+        db.commit()
+    return
+    
 def findLatestPrediction():
     currentTime = datetime.utcnow()
     mostRecentCycle = (currentTime.hour//6)*6
@@ -18,13 +85,15 @@ def findLatestPrediction():
     results = []
     retval = ftp.retrlines('NLST', results.append)
     dirName = "gfs.%s%s"%(currentTime.strftime('%Y%m%d'), str(mostRecentCycle))
+    mostRecent = datetime.utcnow()
+    mostRecent = mostRecent.replace(minute=0, second=0, microsecond=0)
     if dirName in results:
-        mostRecent = currentTime.replace(hour=mostRecentCycle)
+        mostRecent = mostRecent.replace(hour=mostRecentCycle)
         return mostRecent
     else:
         #we need to go back one
         if mostRecentCycle == 0: #Need to go to previous day
-            mostRecent = currentTime - timedelta(1) #subtract a day
+            mostRecent = mostRecent - timedelta(1) #subtract a day
             mostRecent = mostRecent.replace(hour=18)
             return mostRecent
         else:
@@ -93,9 +162,11 @@ def downloadFile(url):
     
 if __name__=="__main__":
     #downloadGrib(34, -118, 20)
-    predictionTime = findLatestPrediction()
-    dataTime = datetime.strptime('2017072121', '%Y%m%d%H')
-    url = generateURL(35, 33.5, -120, -117, dataTime, predictionTime, 0.25)
-    print url 
+    #predictionTime = findLatestPrediction()
+    dataTime = datetime.strptime('2017072221', '%Y%m%d%H')
+    #print findLatestPrediction()
+    #url = generateURL(35, 33.5, -120, -117, dataTime, predictionTime, 0.25)
+    #print url 
     #print type(downloadFile(url))
+    updateDataset(dataTime)
     

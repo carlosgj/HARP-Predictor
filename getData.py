@@ -46,7 +46,7 @@ def updateDataset(valueTime, resolution):
         else:
             raise
     #Check if desired value time already exists in table 
-    c.execute("SELECT COUNT(*) FROM %s WHERE ValueTime=%%s"%presumptiveTableName, (valueTime,))
+    c.execute("SELECT COUNT(*) FROM %s WHERE ValueTime=%%s AND Resolution=%%s"%presumptiveTableName, (valueTime,resolution))
     if c.fetchone()[0] >0:
         logger.info("Data already exists in table %s for prediction time %s. Update not needed."%(presumptiveTableName, valueTime.strftime('%Y%m%d%H')))
         return
@@ -104,13 +104,19 @@ def coerceForecastHour(forecastHoursIdeal, resolution):
     if resolution == 0.25:
         if forecastHoursIdeal <= 120:
             return forecastHoursIdeal
-        else:
+        elif forecastHoursIdeal > 120 and forecastHoursIdeal <= 240:
             return int(3 * round(float(forecastHoursIdeal)/3))
+        elif forecastHoursIdeal <= 384:
+            return int(12 * round(float(forecastHoursIdeal)/12))
+        else:
+            return 384
     elif resolution == 0.5:
         if forecastHoursIdeal <= 240:
             return int(3 * round(float(forecastHoursIdeal)/3))
-        else:
+        elif forecastHoursIdeal <= 384:
             return int(12 * round(float(forecastHoursIdeal)/12))
+        else:
+            return 384
 
 #This function assumes that predictionTime correctly falls on a forecast cycle.
 def generateURL(latTop, latBot, longLeft, longRight, dataTime, predictionTime, resolution):

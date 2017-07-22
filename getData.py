@@ -16,6 +16,9 @@ def pad3(s):
     return retval[-3:]
 
 def updateDataset(valueTime, resolution):
+    resolutionStr = str(resolution)
+    if resolution == 0.5:
+        resolutionStr = '0.50'
     #Table name format: gfsYYYYMMDDHH (of prediction)
     db=MySQLdb.connect(host='delta.carlosgj.org', user='guest', passwd='',db="test_dataset")
     c = db.cursor()
@@ -46,7 +49,7 @@ def updateDataset(valueTime, resolution):
         else:
             raise
     #Check if desired value time already exists in table 
-    c.execute("SELECT COUNT(*) FROM %s WHERE ValueTime=%%s AND Resolution=%%s"%presumptiveTableName, (valueTime,resolution))
+    c.execute("SELECT COUNT(*) FROM %s WHERE ValueTime=%%s AND Resolution='%s'"%(presumptiveTableName, resolutionStr), (valueTime,))
     if c.fetchone()[0] >0:
         logger.info("Data already exists in table %s for prediction time %s. Update not needed."%(presumptiveTableName, valueTime.strftime('%Y%m%d%H')))
         return
@@ -69,7 +72,7 @@ def updateDataset(valueTime, resolution):
             metadata = grib[0]
             tuples = grib[1]
             for tuple in tuples:
-                sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '%s', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), resolution, tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
+                sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '%s', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), resolutionStr, tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
                 c.execute(sqlString)
         db.commit()
     return
@@ -169,7 +172,7 @@ def downloadFile(url):
 def getAllLatestData():
     latestPrediction = findLatestPrediction()
     checkedHours = []
-    for i in range (1, 384):
+    for i in range (1, 385):
         forecastHour = coerceForecastHour(i, 0.50)
         if forecastHour not in checkedHours:
             valueTime = latestPrediction+timedelta(hours=forecastHour)
@@ -178,7 +181,7 @@ def getAllLatestData():
         else:
             logger.info("Skipping %d..."%i)
     checkedHours = []
-    for i in range (1, 384):
+    for i in range (1, 385):
         forecastHour = coerceForecastHour(i, 0.25)
         if forecastHour not in checkedHours:
             valueTime = latestPrediction+timedelta(hours=forecastHour)
@@ -189,14 +192,11 @@ def getAllLatestData():
         
 if __name__=="__main__":
     logger.setLevel(logging.DEBUG)
-    parserLog = logging.getLogger("GRIBparser")
-    parserLog.setLevel(logging.WARNING)
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(logging.INFO)
     formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
     logger.addHandler(ch)
-    parserLog.addHandler(ch)
     #downloadGrib(34, -118, 20)
     #predictionTime = findLatestPrediction()
     dataTime = datetime.strptime('2017072221', '%Y%m%d%H')

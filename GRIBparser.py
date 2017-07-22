@@ -4,11 +4,6 @@ import logging
 from GRIBtables import *
 #logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-logger.addHandler(ch)
     
 def parseGRIBfile(filepath):
     fob = open(filepath, 'rb')
@@ -20,12 +15,12 @@ def parseGRIBdata(content):
     
     results = [] #list of ({GRIBdata}, [tuples]) tuples
     if not content[0:4]=="GRIB":
-        logger.error("Invalid file: does not start with \"GRIB\".")
+        logger.error("Invalid data: does not start with \"GRIB\".")
         return
     gribs = content.split("GRIB")
     for i, chunk in enumerate(gribs):
         if chunk:
-            logger.warning("Parsing GRIB #%d of %d"%(i, len(gribs)))
+            logger.info("Parsing GRIB #%d of %d"%(i, len(gribs)))
             results.append(parseGRIB("GRIB"+chunk))
             #break #debugging
     return results
@@ -320,6 +315,10 @@ def parseGRIB(content):
 
 
 if __name__=="__main__":
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(ch)
     #parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f010")
     results = parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t18z.pgrb2.0p25.f026")
     for foo in results:

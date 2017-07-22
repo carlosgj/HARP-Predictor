@@ -4,6 +4,9 @@ from ftplib import FTP
 import MySQLdb
 import _mysql_exceptions
 import GRIBparser
+import logging
+
+logger = logging.getLogger(__name__)
 
 def roundHalf(n):
     return str(round(n * 2) / 2)
@@ -19,13 +22,14 @@ def updateDataset(valueTime):
     c.execute("USE test_dataset")
     #Get time of latest NOMADS prediction
     latestAvailable = findLatestPrediction()
+    logger.info("Most recent prediction: %s"%latestAvailable.strftime('%Y%m%d%H'))
     presumptiveTableName = 'gfs'+latestAvailable.strftime('%Y%m%d%H')
     #print "Table should be called:", presumptiveTableName
     try:
         c.execute("SELECT 1 FROM %s LIMIT 1"%presumptiveTableName)
     except _mysql_exceptions.ProgrammingError as e:
         if e[0] == 1146:
-            #Table does not exist
+            logger.info("Prediction table does not exist. Creating.")
             c.execute("CREATE TABLE %s (\
                 ValueTime DATETIME, \
                 Resolution ENUM('0.25', '0.50'), \
@@ -44,55 +48,45 @@ def updateDataset(valueTime):
     #Check if desired value time already exists in table 
     c.execute("SELECT COUNT(*) FROM %s WHERE ValueTime=%%s"%presumptiveTableName, (valueTime,))
     if c.fetchone()[0] >0:
-        #Data already exists
+        logger.info("Data already exists in table %s for prediction time %s. Update not needed."%(presumptiveTableName, valueTime.strftime('%Y%m%d%H')))
         return
     else:
+        logger.info("Getting new data...")
         url = generateURL(35, 33.5, -120, -117, valueTime, latestAvailable, 0.25)
-        print url
-        print "Downloading GRIB..."
+        logger.debug(url)
+        logger.info("Downloading GRIB...")
         data = downloadFile(url)
-	#fob = open('datafile', 'rb')
-	#data=fob.read()
-	#fob.close()
-        print "Download complete."
-        #print data
-        print "Parsing GRIB..."
+        logger.info("Download complete.")
+        logger.info("Parsing GRIB...")
         processedData = GRIBparser.parseGRIBdata(data)
-        print "Parsing complete."
-        #print processedData
+        logger.info("Parsing complete.")
         tupleCount = 0
         for grib in processedData:
             tupleCount += len(grib[1])
-        print "Processing a total of %d tuples..."%tupleCount
+        logger.info("Processing a total of %d tuples..."%tupleCount)
         for i, grib in enumerate(processedData):
-            print "Ingesting data from GRIB %d of %d..."%(i, len(processedData))
+            logger.debug("Ingesting data from GRIB %d of %d..."%(i, len(processedData)))
             metadata = grib[0]
             tuples = grib[1]
             for tuple in tuples:
-            	sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '0.25', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
-		#print sqlString
-		c.execute(sqlString)
+                sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '0.25', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
+                c.execute(sqlString)
         db.commit()
 
         url = generateURL(35, 33.5, -120, -117, valueTime, latestAvailable, 0.50)
-        print url
-        print "Downloading GRIB..."
+        logger.debug(url)
+        logger.info("Downloading GRIB...")
         data = downloadFile(url)
-        #fob = open('datafile', 'rb')
-        #data=fob.read()
-        #fob.close()
-        print "Download complete."
-        #print data
-        print "Parsing GRIB..."
+        logger.info("Download complete.")
+        logger.info("Parsing GRIB...")
         processedData = GRIBparser.parseGRIBdata(data)
-        print "Parsing complete."
-        #print processedData
+        logger.info("Parsing complete.")
         tupleCount = 0
         for grib in processedData:
             tupleCount += len(grib[1])
-        print "Processing a total of %d tuples..."%tupleCount
+        logger.info("Processing a total of %d tuples..."%tupleCount)
         for i, grib in enumerate(processedData):
-            print "Ingesting data from GRIB %d of %d..."%(i, len(processedData))
+            logger.debug("Ingesting data from GRIB %d of %d..."%(i, len(processedData)))
             metadata = grib[0]
             tuples = grib[1]
             for tuple in tuples:
@@ -189,6 +183,15 @@ def downloadFile(url):
 
     
 if __name__=="__main__":
+    logger.setLevel(logging.DEBUG)
+    parserLog = logging.getLogger("GRIBparser")
+    parserLog.setLevel(logging.WARNING)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    parserLog.addHandler(ch)
     #downloadGrib(34, -118, 20)
     #predictionTime = findLatestPrediction()
     dataTime = datetime.strptime('2017072221', '%Y%m%d%H')

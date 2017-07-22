@@ -199,5 +199,7 @@ if __name__=="__main__":
     #url = generateURL(35, 33.5, -120, -117, dataTime, predictionTime, 0.25)
     #print url 
     #print type(downloadFile(url))
-    updateDataset(dataTime)
+    for i in range(1, 37):
+        dataTime = dataTime.replace(hour=i)
+        updateDataset(dataTime)
     

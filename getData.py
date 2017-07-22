@@ -100,7 +100,7 @@ def findLatestPrediction():
 
 #0.50 forecasts: data for 3-hour intervals to 240 hours out, 12-hour intervals for 240 to 384 hours out. 
 #0.25 forecasts: data at 1-hour intervals to 120 hours out, 3-hour intervals for 120 to 240 hours out, 12-hour intervals for 240 to 384 hours out.
-def coerceForecastHour(desiredDelta, resolution):
+def coerceForecastHour(forecastHoursIdeal, resolution):
     if resolution == 0.25:
         if forecastHoursIdeal <= 120:
             return forecastHoursIdeal
@@ -164,19 +164,19 @@ def getAllLatestData():
     latestPrediction = findLatestPrediction()
     checkedHours = []
     for i in range (1, 384):
-        forecastHour = coerceForecastHour(i, 0.25)
+        forecastHour = coerceForecastHour(i, 0.50)
         if forecastHour not in checkedHours:
-            valueTime = latestPrediction.replace(hour=forecastHour)
-            updateDataset(valueTime, 0.25)
+            valueTime = latestPrediction+timedelta(hours=forecastHour)
+            updateDataset(valueTime, 0.50)
             checkedHours.append(forecastHour)
         else:
             logger.info("Skipping %d..."%i)
     checkedHours = []
     for i in range (1, 384):
-        forecastHour = coerceForecastHour(i, 0.50)
+        forecastHour = coerceForecastHour(i, 0.25)
         if forecastHour not in checkedHours:
-            valueTime = latestPrediction.replace(hour=forecastHour)
-            updateDataset(valueTime, 0.50)
+            valueTime = latestPrediction+timedelta(hours=forecastHour)
+            updateDataset(valueTime, 0.25)
             checkedHours.append(forecastHour)
         else:
             logger.info("Skipping %d..."%i)

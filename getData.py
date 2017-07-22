@@ -15,7 +15,7 @@ def pad3(s):
     retval = "000"+str(s)
     return retval[-3:]
 
-def updateDataset(valueTime):
+def updateDataset(valueTime, resolution):
     #Table name format: gfsYYYYMMDDHH (of prediction)
     db=MySQLdb.connect(host='delta.carlosgj.org', user='guest', passwd='',db="test_dataset")
     c = db.cursor()
@@ -52,7 +52,7 @@ def updateDataset(valueTime):
         return
     else:
         logger.info("Getting new data...")
-        url = generateURL(35, 33.5, -120, -117, valueTime, latestAvailable, 0.25)
+        url = generateURL(35, 33.5, -120, -117, valueTime, latestAvailable, resolution)
         logger.debug(url)
         logger.info("Downloading GRIB...")
         data = downloadFile(url)
@@ -69,33 +69,9 @@ def updateDataset(valueTime):
             metadata = grib[0]
             tuples = grib[1]
             for tuple in tuples:
-                sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '0.25', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
+                sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '%s', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), resolution, tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
                 c.execute(sqlString)
         db.commit()
-
-        url = generateURL(35, 33.5, -120, -117, valueTime, latestAvailable, 0.50)
-        logger.debug(url)
-        logger.info("Downloading GRIB...")
-        data = downloadFile(url)
-        logger.info("Download complete.")
-        logger.info("Parsing GRIB...")
-        processedData = GRIBparser.parseGRIBdata(data)
-        logger.info("Parsing complete.")
-        tupleCount = 0
-        for grib in processedData:
-            tupleCount += len(grib[1])
-        logger.info("Processing a total of %d tuples..."%tupleCount)
-        for i, grib in enumerate(processedData):
-            logger.debug("Ingesting data from GRIB %d of %d..."%(i, len(processedData)))
-            metadata = grib[0]
-            tuples = grib[1]
-            for tuple in tuples:
-                sqlString = "INSERT INTO %s (ValueTime, Resolution, Latitude, Longitude, Isobar, %s) VALUES ('%s', '0.50', %s, %s, %s, %s) ON DUPLICATE KEY UPDATE %s=%s"%(presumptiveTableName, metadata["param"], metadata["valuetime"].strftime('%Y-%m-%d %H:%M:%S'), tuple[0], tuple[1], metadata["isobar"], tuple[2], metadata["param"], tuple[2])
-                #print sqlString
-                c.execute(sqlString)
-        db.commit()
-
-
     return
     
 def findLatestPrediction():
@@ -121,10 +97,22 @@ def findLatestPrediction():
         else:
             mostRecent = mostRecent.replace(hour=(mostRecentCycle - 6))
             return mostRecent
-    
+
+#0.50 forecasts: data for 3-hour intervals to 240 hours out, 12-hour intervals for 240 to 384 hours out. 
+#0.25 forecasts: data at 1-hour intervals to 120 hours out, 3-hour intervals for 120 to 240 hours out, 12-hour intervals for 240 to 384 hours out.
+def coerceForecastHour(desiredDelta, resolution):
+    if resolution == 0.25:
+        if forecastHoursIdeal <= 120:
+            return forecastHoursIdeal
+        else:
+            return int(3 * round(float(forecastHoursIdeal)/3))
+    elif resolution == 0.5:
+        if forecastHoursIdeal <= 240:
+            return int(3 * round(float(forecastHoursIdeal)/3))
+        else:
+            return int(12 * round(float(forecastHoursIdeal)/12))
+
 #This function assumes that predictionTime correctly falls on a forecast cycle.
-#0.50 forecasts: data for 3-hour intervals to 240 hours out, 12-hour intervals thereafter
-#0.25 forecasts: data for 1-hour intervals to 120 hours out, 3-hour intervals thereafter.
 def generateURL(latTop, latBot, longLeft, longRight, dataTime, predictionTime, resolution):
     latTop = str(latTop)
     latBot = str(latBot)
@@ -134,16 +122,7 @@ def generateURL(latTop, latBot, longLeft, longRight, dataTime, predictionTime, r
     forecastCycleHour = predictionTime.strftime('%H')
     forecastDelta= dataTime - predictionTime
     forecastHoursIdeal = forecastDelta.days*24+forecastDelta.seconds//3600
-    if resolution == 0.25:
-        if forecastHoursIdeal <= 120:
-            forecastHour = forecastHoursIdeal
-        else:
-            forecastHour = int(3 * round(float(forecastHoursIdeal)/3))
-    elif resolution == 0.5:
-        if forecastHoursIdeal <= 240:
-            forecastHour = int(3 * round(float(forecastHoursIdeal)/3))
-        else:
-            forecastHour = int(12 * round(float(forecastHoursIdeal)/12))
+    forecastHour = coerceForecastHour(forecastHoursIdeal, resolution)
                 
     if resolution == 0.25:
         bigURL = "http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t"
@@ -181,7 +160,27 @@ def downloadFile(url):
     html = response.read()
     return html
 
-    
+def getAllLatestData():
+    latestPrediction = findLatestPrediction()
+    checkedHours = []
+    for i in range (1, 384):
+        forecastHour = coerceForecastHour(i, 0.25)
+        if forecastHour not in checkedHours:
+            valueTime = latestPrediction.replace(hour=forecastHour)
+            updateDataset(valueTime, 0.25)
+            checkedHours.append(forecastHour)
+        else:
+            logger.info("Skipping %d..."%i)
+    checkedHours = []
+    for i in range (1, 384):
+        forecastHour = coerceForecastHour(i, 0.50)
+        if forecastHour not in checkedHours:
+            valueTime = latestPrediction.replace(hour=forecastHour)
+            updateDataset(valueTime, 0.50)
+            checkedHours.append(forecastHour)
+        else:
+            logger.info("Skipping %d..."%i)
+        
 if __name__=="__main__":
     logger.setLevel(logging.DEBUG)
     parserLog = logging.getLogger("GRIBparser")
@@ -199,7 +198,6 @@ if __name__=="__main__":
     #url = generateURL(35, 33.5, -120, -117, dataTime, predictionTime, 0.25)
     #print url 
     #print type(downloadFile(url))
-    for i in range(1, 37):
-        dataTime = dataTime.replace(hour=i)
-        updateDataset(dataTime)
+    #updateDataset(dataTime)
+    getAllLatestData()
     

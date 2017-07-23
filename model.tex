@@ -1,0 +1,48 @@
+\documentclass[]{article}
+\usepackage{fullpage}
+%opening
+\title{Flight Prediction Model}
+\author{Carlos Gross Jones}
+
+\newcommand{\volume}{\mathop{\ooalign{\hfil$V$\hfil\cr\kern0.08em--\hfil\cr}}\nolimits}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+\end{abstract}
+
+\section{Ascent Rate}
+\par Ascent rate is governed by the apparent weight of the balloon assembly (mass - lift) and its upwards drag coefficient. Does lift vary with pressure?
+\begin{equation}
+L=g[m_a-(m_h+m_e)]
+\end{equation}
+Where $g$ is the acceleration due to gravity, $L$ is the net lift, $m_a$ is the mass of the air displaced by the balloon, $m_h$ is the mass of the helium in the balloon, and $m_e$ is the mass of the balloon envelope.
+Assume that the pressure inside the balloon is higher than the external pressure by a fixed amount:
+\begin{equation}
+P_b=P_a+C
+\end{equation}
+\begin{equation}
+P\volume=mR_sT
+\end{equation}
+\begin{equation}
+m_a=\frac{P_a\volume_b}{R_sT}
+\end{equation}
+\begin{equation}
+\volume_h=\frac{m_hR_sT}{P_b}
+\end{equation}
+\begin{equation}
+\volume_h=\frac{m_hR_sT}{P_a+C}
+\end{equation}
+\begin{equation}
+m_a=\frac{P_am_hR_sT}{R_sT(P_a+C)}
+\end{equation}
+\begin{equation}
+m_a=\frac{P_am_h}{(P_a+C)}
+\end{equation}
+\begin{equation}
+L=g[\frac{P_am_h}{(P_a+C)}-(m_h+m_e)]
+\end{equation}
+\end{document}

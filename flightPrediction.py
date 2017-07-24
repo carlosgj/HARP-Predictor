@@ -26,9 +26,10 @@ class Prediction():
     #These need to be initialized
     launchPoint=None #GeoPoint object
     burstPressure=None #In mb
+    burstAltitude=None
     ascentRate=None #in f/s
     descentRate=None #in f/s
-    def __init__(self, launchPoint, burstPressure, ascentRate, descentRate):
+    def __init__(self, launchPoint, ascentRate, descentRate, burstPressure=None, burstAltitude=None):
         self.launchPoint = launchPoint
         self.burstPressure = burstPressure
         self.ascentRate = ascentRate
@@ -39,6 +40,7 @@ class Prediction():
     path=[]
 
 def runPrediction(prediction):
+    assert (prediction.burstPressure is not None) or (prediction.burstAltitude is not None)
     prediction.phase = 'ascent'
     prediction.currentPoint = prediction.launchPoint
     print "Launch point:", prediction.launchPoint
@@ -58,8 +60,11 @@ def runPrediction(prediction):
         newpoint.latitude = prediction.currentPoint.latitude + (deltaYFeet/feetPerDegreeLatitude)
         newpoint.longitude = prediction.currentPoint.longitude + (deltaXFeet/feetPerDegreeLongitude)
         prediction.currentPoint = newpoint
-        if weather["Pressure"] < prediction.burstPressure and prediction.phase == "ascent":
-            prediction.phase = "descent"
+        if prediction.phase == 'ascent':
+            if (prediction.burstPressure is not None) and weather["Pressure"] < prediction.burstPressure:
+                prediction.phase = "descent"
+            elif (prediction.burstAltitude is not None) and prediction.elevation > prediction.burstAltitude:
+                prediction.phase = "descent"
         print newpoint
         #break #debugging
 
@@ -67,5 +72,5 @@ def runPrediction(prediction):
 
 if __name__ == "__main__":
     launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime.utcnow())
-    pred = Prediction(launchPoint, 11, 7.2, 16)
+    pred = Prediction(launchPoint, 7.2, 16, burstAltitude=100000)
     runPrediction(pred)

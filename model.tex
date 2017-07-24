@@ -28,21 +28,38 @@ P_b=P_a+C
 P\volume=mR_sT
 \end{equation}
 \begin{equation}
-m_a=\frac{P_a\volume_b}{R_sT}
+m_a=\frac{P_a\volume_b}{R_{s,a}T}
 \end{equation}
 \begin{equation}
-\volume_h=\frac{m_hR_sT}{P_b}
+\volume_h=\frac{m_hR_{s,h}T}{P_b}
 \end{equation}
 \begin{equation}
-\volume_h=\frac{m_hR_sT}{P_a+C}
+\volume_h=\frac{m_hR_{s,h}T}{P_a+C}
 \end{equation}
 \begin{equation}
-m_a=\frac{P_am_hR_sT}{R_sT(P_a+C)}
+m_a=\frac{P_am_hR_{s,h}T}{R_{s,a}T(P_a+C)}
 \end{equation}
 \begin{equation}
-m_a=\frac{P_am_h}{(P_a+C)}
+m_a=\frac{P_am_hR_{s,h}}{R_{s,a}(P_a+C)}
 \end{equation}
 \begin{equation}
-L=g[\frac{P_am_h}{(P_a+C)}-(m_h+m_e)]
+L=g\left[\frac{P_am_hR_{s,h}}{R_{s,a}(P_a+C)}-(m_h+m_e)\right]
+\end{equation}
+We can define a ``lift factor''
+\begin{equation}
+F_L=\frac{P_a}{P_a+C}
+=\frac{P_a}{P_b}
+\end{equation}
+We know that lift at launch is this factor times the ``infinite pressure lift'':
+\begin{equation}
+L_{launch}=\frac{P_{a,launch}}{P_{b,launch}}L_{P\infty}
+\end{equation}
+By measuring pressure and lift of the balloon, and knowing the atmospheric pressure, $L_{P\infty}$ can be calculated, as well as $C$:
+\begin{equation}
+C=P_b-P_a
+\end{equation}
+Thereafter, lift at any altitude can be calculated:
+\begin{equation}
+L=\frac{P_a}{P_a+C}L_{P\infty}
 \end{equation}
 \end{document}

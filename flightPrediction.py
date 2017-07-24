@@ -32,6 +32,7 @@ class Prediction():
     def __init__(self, launchPoint, ascentRate, descentRate, burstPressure=None, burstAltitude=None):
         self.launchPoint = launchPoint
         self.burstPressure = burstPressure
+        self.burstAltitude = burstAltitude
         self.ascentRate = ascentRate
         self.descentRate = descentRate
     #These are calculated

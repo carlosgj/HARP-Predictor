@@ -150,7 +150,7 @@ def findLatLongPoints(latitude, longitude):
         secondLongPoint = firstLongPoint
     return (firstLatPoint, secondLatPoint), (firstLongPoint, secondLongPoint)
     
-def getWeatherDataAtPointAtTime(latitude, longitude, time, elevation):
+def getWeatherDataAtPointAtPredictionTime(latitude, longitude, time, elevation):
     #First, find 4 nearest lat/lon points
     lats, longs = findLatLongPoints(latitude, longitude)
     minLat = min(lats)
@@ -185,5 +185,31 @@ def getWeatherDataAtPointAtTime(latitude, longitude, time, elevation):
     for key in finalData:
         finalData[key] = (negXPointData[key]*negXWeightingFactor) + (posXPointData[key]*posXWeightingFactor)
     return finalData
+    
+    
+def getWeatherDataInterpolated(latitude, longitude, time, elevation):
+    #Bracket time
+    table=getLatestTable()
+    c.execute("""SELECT DISTINCT(ValueTime) FROM %s"""%table)
+    availableTimes = c.fetchall()
+    availableTimes = [x[0] for x in availableTimes]
+    beforeTime = min(availableTimes)
+    afterTime = max(availableTimes)
+    assert beforeTime < time
+    assert afterTime > time
+    for predtime in availableTimes:
+        if predtime > beforeTime and predtime < time:
+            beforeTime = predtime
+        if predtime < afterTime and predtime > time:
+            afterTime = predtime
+    beforeWeather = getWeatherDataAtPointAtPredictionTime(latitude, longitude, beforeTime, elevation)
+    afterWeather = getWeatherDataAtPointAtPredictionTime(latitude, longitude, afterTime, elevation)
+    beforeWeightingFactor = (afterTime-time).total_seconds()/(afterTime-beforeTime).total_seconds()
+    afterWeightingFactor = (time-beforeTime).total_seconds() / (afterTime-beforeTime).total_seconds()
+    finalData = {}
+    for key in beforeWeather:
+        finalData[key] = beforeWeather[key]*beforeWeightingFactor + afterWeather[key]*afterWeightingFactor
+    return finalData
+    
 if __name__ == "__main__":
-    print getWeatherDataAtPointAtTime(34.2,-118.6, datetime.strptime('2017072318', '%Y%m%d%H'), 12000)
+    print getWeatherDataInterpolated(34.2,-118.6, datetime.strptime('201707251230', '%Y%m%d%H%M'), 12000)

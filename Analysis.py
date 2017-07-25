@@ -2,13 +2,17 @@ import MySQLdb
 from datetime import datetime
 db=MySQLdb.connect(host='delta.carlosgj.org', user='readonly', passwd='',db="test_dataset")
 c = db.cursor()
-
+latestTable = None
 def getLatestTable():
+    global latestTable
+    if latestTable is not None:
+        return latestTable
     c.execute("SHOW tables")
     raw = c.fetchall()
     tables = [int(x[0].lstrip("gfs")) for x in raw if x[0].startswith("gfs")]
     latestNum = max(tables)
-    return "gfs"+str(latestNum)
+    latestTable = "gfs"+str(latestNum)
+    return latestTable
     
 def getHGTsforExact(latitude, longitude, resolution, time):
     resStr = "0.50"
@@ -106,31 +110,6 @@ def getZPlaneAverage(latitude, longitude, time, elevation):
         finalData[key] = finalUpperData[key]*upperWeightingFactor+finalLowerData[key]*lowerWeightingFactor
     finalData['Pressure'] = meanPressure
     return finalData
-    
-# Linear interpolation
-#  x is the point of interest
-#  x1 and x2 are the 2 points on either side of x
-#  v1 and v2 are the values at x1 and x2 respectivly
-#  returns the value at x
-def lerp(x, x1, x2, v1, v2):
-    return ((x2 - x) / (x2 - x1)) * v1 + ((x - x1) / (x2 - x1)) * v2
-
-# TriLinear Interpolation
-# x, y, & z is the point of interest
-# vXXX is the value at the corners where XXX = z, y, x respectivly
-# x1, x2 are the 2 points in the x dir, y & z represent the other 2 directions
-# in our case, x = long, y=lat, & z = alt
-def triLerp(x, y, z, v000, v001, v010, v011, v100, v101, v110, v111, x0, x1, y0, y1, z0, z1):
-    # do the interpolation of the 4 points on the x plane
-    x00 = lerp(x, x0, x1, v000, v100)
-    x10 = lerp(x, x0, x1, v010, v110)
-    x01 = lerp(x, x0, x1, v001, v101)
-    x11 = lerp(x, x0, x1, v011, v111)
-    # now the 2 in the y plane
-    r0 = lerp(y, y0, y1, x00, x01)
-    r1 = lerp(y, y0, y1, x10, x11)
-    # and finally in the z plane
-    return lerp(z, z0, z1, r0, r1)
     
 def findLatLongPoints(latitude, longitude):
     firstLatPoint = round(4*latitude)/4.

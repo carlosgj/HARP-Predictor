@@ -1,8 +1,13 @@
 import MySQLdb
 from datetime import datetime
+from collections import defaultdict
+import logging
+logger = logging.getLogger(__name__)
 db=MySQLdb.connect(host='delta.carlosgj.org', user='readonly', passwd='',db="test_dataset")
 c = db.cursor()
 latestTable = None
+MBTables = {}
+
 def getLatestTable():
     global latestTable
     if latestTable is not None:
@@ -12,6 +17,7 @@ def getLatestTable():
     tables = [int(x[0].lstrip("gfs")) for x in raw if x[0].startswith("gfs")]
     latestNum = max(tables)
     latestTable = "gfs"+str(latestNum)
+    print "Using table:", latestTable
     return latestTable
     
 def getHGTsforExact(latitude, longitude, resolution, time):
@@ -19,11 +25,18 @@ def getHGTsforExact(latitude, longitude, resolution, time):
     if resolution==0.25:
         resStr = '0.25'
     rows = c.execute("""SELECT Isobar, HGT from %s WHERE Latitude=%f AND Longitude=%f AND Resolution= '%s' AND ValueTime='%s'"""%(getLatestTable(), latitude, longitude, resStr, time.strftime('%Y-%m-%d %H:%M:%S')))
-    return c.fetchall()
+    results =  c.fetchall()
+    return results
     
 def buildMBTable(latitude, longitude, time):
+    global MBTables
+    if (latitude, longitude, time) in MBTables:
+        return MBTables[(latitude, longitude, time)]
+    #print latitude, longitude, time.strftime('%Y%m%d %H:%M:%S')
     res25 = getHGTsforExact(latitude, longitude, 0.25, time)
     res50 = getHGTsforExact(latitude, longitude, 0.50, time)
+    if not res25 and not res50:
+        logger.critical("Could not find HGTs for latitude %f, longitude %f, at %s. Balloon may be out of database limits."%(latitude, longitude, time.strftime('%Y-%m-%d %H:%M:%S')))
     res50Table = {}
     for i in res50:
         res50Table[i[0]] = i[1]
@@ -42,7 +55,8 @@ def buildMBTable(latitude, longitude, time):
                 val = (val+res50Table[isobar])/2.
             else:
                 val = res50Table[isobar]
-        finalTable[isobar] = val
+        finalTable[val] = isobar
+    MBTables[(latitude, longitude, time)] = finalTable
     return finalTable
     
 def bracketElevation(latitude, longitude, time, elevation):
@@ -53,18 +67,25 @@ def bracketElevation(latitude, longitude, time, elevation):
         'upperIsobar':None, 
         'upperElevation':100000
         }
-    for isobar, hgt in table.iteritems():
-        if hgt > retDict['lowerElevation']  and hgt < elevation:
-            retDict['lowerElevation'] = hgt
-            retDict['lowerIsobar'] = isobar
-        elif hgt < retDict['upperElevation'] and hgt > elevation:
+    lowerIsobar = None
+    upperIsobar = None
+    lowerElevation = 0
+    upperElevation = 1000000
+    sortedKeys = sorted(table.keys())
+    for idx, hgt in enumerate(sortedKeys):
+        if  hgt < elevation:
+            retDict['lowerElevation']=hgt
+            retDict['lowerIsobar'] = table[hgt]
+        elif hgt > elevation:
             retDict['upperElevation'] = hgt
-            retDict['upperIsobar'] = isobar
+            retDict['upperIsobar'] = table[hgt]
+            break
     return retDict
     
 def getZPlaneAverage(latitude, longitude, time, elevation):
     points = bracketElevation(latitude, longitude, time, elevation)
     if (not points['lowerIsobar']) or (not points['upperIsobar']):
+        print points
         return
         #TODO: error handling
     upperWeightingFactor = (float(elevation)-points['lowerElevation'])/(points['upperElevation']-points['lowerElevation'])

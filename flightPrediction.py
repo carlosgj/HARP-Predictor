@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 import Analysis
 import copy 
 import math
-
+import logging
+logger = logging.getLogger(__name__)
 iterationIntervalSeconds = 30
 
 feetPerMeter = 3.28084
@@ -49,7 +50,7 @@ def runPrediction(prediction):
         #Copy point into path
         prediction.path.append(copy.deepcopy(prediction.currentPoint))
         #Get weather at point
-        weather = Analysis.getWeatherDataInterpolated(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.currentPoint.time, prediction.currentPoint.elevation)
+        weather = Analysis.getWeatherDataInterpolated(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.currentPoint.time, prediction.currentPoint.elevation/feetPerMeter)
         newpoint = geoTimePoint(time=prediction.currentPoint.time+timedelta(seconds=iterationIntervalSeconds))
         if prediction.phase == "ascent":
             newpoint.elevation = prediction.currentPoint.elevation + (iterationIntervalSeconds*prediction.ascentRate)
@@ -64,7 +65,7 @@ def runPrediction(prediction):
         if prediction.phase == 'ascent':
             if (prediction.burstPressure is not None) and weather["Pressure"] < prediction.burstPressure:
                 prediction.phase = "descent"
-            elif (prediction.burstAltitude is not None) and prediction.elevation > prediction.burstAltitude:
+            elif (prediction.burstAltitude is not None) and prediction.currentPoint.elevation > prediction.burstAltitude:
                 prediction.phase = "descent"
         print newpoint
         #break #debugging
@@ -72,6 +73,14 @@ def runPrediction(prediction):
 
 
 if __name__ == "__main__":
+    logger.setLevel(logging.DEBUG)
+    analysisLogger = logging.getLogger("Analysis")
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    analysisLogger.addHandler(ch)
     launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime.utcnow())
-    pred = Prediction(launchPoint, 7.2, 16, burstAltitude=100000)
+    pred = Prediction(launchPoint, 7.2, 16, burstAltitude=50000)
     runPrediction(pred)

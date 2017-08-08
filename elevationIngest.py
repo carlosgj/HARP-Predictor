@@ -38,13 +38,13 @@ class FileIngestor():
         #print latIncrement, longIncrement
         #print weInterval, snInterval
         for yIdx, row in enumerate(self.dataArray):
-            lat = self.south+(yIdx*latIncrement)
+            lat = self.north-(yIdx*latIncrement)
             print lat
             for xIdx, val in enumerate(row):
                 elevFeet = val*feetPerMeter
                 long = self.west+(xIdx*longIncrement)
                 c.execute("""INSERT INTO %s (latitude, longitude, elevation) VALUES (%f, %f, %f)"""%(self.dbTable, lat, long, elevFeet))
-        db.commit()
+            db.commit()
 
 if __name__ == "__main__":
     foo = FileIngestor("/root/elevData/n35w118/", "n35w118_13")

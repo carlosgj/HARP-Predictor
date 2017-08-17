@@ -1,0 +1,95 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
+   integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
+   crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"
+   integrity="sha512-lInM/apFSqyy1o6s89K4iQUKg6ppXEgsVxT35HbzUupEVRh2Eu9Wdl4tHj7dZO0s1uvplcYGmt3498TtHq+log=="
+   crossorigin=""></script>
+</head>
+<body>
+<div id="mapid" style="height: 600px;"></div>
+<div id="mapinfo">
+<span id="crsPos">
+<table style="border: 2px solid black; border-collapse: collapse;">
+<th colspan=2>Cursor Position</th>
+<tr><td id='crsLat' style="border: 2px solid black; border-collapse: collapse;"></td><td id='crsLon' style="border: 2px solid black; border-collapse: collapse;"></td></tr>
+</table>
+</span>
+<span id="mapPicker">
+<select id="mapBase" onchange="setMapType()">
+  <option value="mapbox.streets">Street</option>
+  <option value="mapbox.satellite">Satellite</option>
+  <option value="mapbox.streets-satellite">Street+Satellite</option>
+  <option value="mapbox.outdoors">Topo</option>
+</select>
+</span>
+</div>
+
+<script>
+var mymap = L.map('mapid').setView([34.237, -118.254], 17);
+var streets = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.streets',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var satellite = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.satellite',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var streetsSatellite = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.streets-satellite',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+mymap.addLayer(streets);
+var marker = L.circleMarker([34.237, -118.254], {radius:5, color:"#ff0000", title:"asdfasdf", alt:"qwerqwer"}).addTo(mymap);
+function onMapClick(e) {
+    latStr = Math.round(e.latlng.lat *1000)/1000
+    lonStr = Math.round(e.latlng.lng *1000)/1000
+    document.getElementById('crsLat').innerHTML=latStr;
+    document.getElementById('crsLon').innerHTML=lonStr;
+}
+
+marker.bindPopup("Popup content");
+        marker.on('mouseover', function (e) {
+            this.openPopup();
+        });
+        marker.on('mouseout', function (e) {
+            this.closePopup();
+        });
+
+function setMapType(){
+    if(mymap.hasLayer(streets)){
+        mymap.removeLayer(streets);
+    }
+    if(mymap.hasLayer(satellite)){
+        mymap.removeLayer(satellite);
+    }
+    if(mymap.hasLayer(streetsSatellite)){
+        mymap.removeLayer(streetsSatellite);
+    }
+    switch(document.getElementById('mapBase').value){
+        case "mapbox.streets":
+            mymap.addLayer(streets);
+            break;
+        case "mapbox.satellite":
+            mymap.addLayer(satellite);
+            break;
+        case "mapbox.streets-satellite":
+            mymap.addLayer(streetsSatellite);
+            break;
+    }
+}
+
+mymap.on('mousemove', onMapClick);
+</script>
+</body>
+</html>

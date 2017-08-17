@@ -55,7 +55,7 @@ def updateDataset(valueTime, resolution):
         return
     else:
         logger.info("Getting new data...")
-        url = generateURL(35, 33.5, -120, -117, valueTime, latestAvailable, resolution)
+        url = generateURL(36, 33, -121, -116, valueTime, latestAvailable, resolution)
         logger.debug(url)
         logger.info("Downloading GRIB...")
         data = downloadFile(url)
@@ -180,15 +180,15 @@ def getAllLatestData():
             checkedHours.append(forecastHour)
         else:
             logger.info("Skipping %d..."%i)
-    checkedHours = []
-    for i in range (1, 385):
-        forecastHour = coerceForecastHour(i, 0.25)
-        if forecastHour not in checkedHours:
-            valueTime = latestPrediction+timedelta(hours=forecastHour)
-            updateDataset(valueTime, 0.25)
-            checkedHours.append(forecastHour)
-        else:
-            logger.info("Skipping %d..."%i)
+    #checkedHours = []
+    #for i in range (1, 385):
+    #    forecastHour = coerceForecastHour(i, 0.25)
+    #    if forecastHour not in checkedHours:
+    #        valueTime = latestPrediction+timedelta(hours=forecastHour)
+    #        updateDataset(valueTime, 0.25)
+    #        checkedHours.append(forecastHour)
+    #    else:
+    #        logger.info("Skipping %d..."%i)
         
 if __name__=="__main__":
     logger.setLevel(logging.DEBUG)
@@ -199,7 +199,7 @@ if __name__=="__main__":
     logger.addHandler(ch)
     #downloadGrib(34, -118, 20)
     #predictionTime = findLatestPrediction()
-    dataTime = datetime.strptime('2017072221', '%Y%m%d%H')
+    #dataTime = datetime.strptime('2017072221', '%Y%m%d%H')
     #print findLatestPrediction()
     #url = generateURL(35, 33.5, -120, -117, dataTime, predictionTime, 0.25)
     #print url 

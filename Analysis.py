@@ -33,23 +33,24 @@ def buildMBTable(latitude, longitude, time):
     if (latitude, longitude, time) in MBTables:
         return MBTables[(latitude, longitude, time)]
     #print latitude, longitude, time.strftime('%Y%m%d %H:%M:%S')
-    res25 = getHGTsforExact(latitude, longitude, 0.25, time)
+    #res25 = getHGTsforExact(latitude, longitude, 0.25, time)
     res50 = getHGTsforExact(latitude, longitude, 0.50, time)
-    if not res25 and not res50:
+    #if not res25 and not res50:
+    if not res50:
         logger.critical("Could not find HGTs for latitude %f, longitude %f, at %s. Balloon may be out of database limits."%(latitude, longitude, time.strftime('%Y-%m-%d %H:%M:%S')))
     res50Table = {}
     for i in res50:
         res50Table[i[0]] = i[1]
-    res25Table = {}
-    for i in res25:
-        res25Table[i[0]] = i[1]
+    #res25Table = {}
+    #for i in res25:
+    #    res25Table[i[0]] = i[1]
     allisobars = set(res50Table.keys())
-    allisobars = allisobars.union(set(res25Table.keys()))
+    #allisobars = allisobars.union(set(res25Table.keys()))
     finalTable = {}
     for isobar in allisobars:
         val = None
-        if isobar in res25Table:
-            val = res25Table[isobar]
+        #if isobar in res25Table:
+        #    val = res25Table[isobar]
         if isobar in res50Table:
             if val:
                 val = (val+res50Table[isobar])/2.
@@ -133,19 +134,19 @@ def getZPlaneAverage(latitude, longitude, time, elevation):
     return finalData
     
 def findLatLongPoints(latitude, longitude):
-    firstLatPoint = round(4*latitude)/4.
+    firstLatPoint = round(2*latitude)/2.
     if firstLatPoint < latitude:
-        secondLatPoint = firstLatPoint + 0.25
+        secondLatPoint = firstLatPoint + 0.5
     elif firstLatPoint > latitude:
-        secondLatPoint = firstLatPoint - 0.25
+        secondLatPoint = firstLatPoint - 0.5
     else:
         secondLatPoint = firstLatPoint
     
-    firstLongPoint = round(4*longitude)/4.
+    firstLongPoint = round(2*longitude)/2.
     if firstLongPoint < longitude:
-        secondLongPoint = firstLongPoint + 0.25
+        secondLongPoint = firstLongPoint + 0.5
     elif firstLongPoint > longitude:
-        secondLongPoint = firstLongPoint - 0.25
+        secondLongPoint = firstLongPoint - 0.5
     else:
         secondLongPoint = firstLongPoint
     return (firstLatPoint, secondLatPoint), (firstLongPoint, secondLongPoint)
@@ -195,8 +196,8 @@ def getWeatherDataInterpolated(latitude, longitude, time, elevation):
     availableTimes = [x[0] for x in availableTimes]
     beforeTime = min(availableTimes)
     afterTime = max(availableTimes)
-    assert beforeTime < time
-    assert afterTime > time
+    assert beforeTime <= time
+    assert afterTime >= time
     for predtime in availableTimes:
         if predtime > beforeTime and predtime < time:
             beforeTime = predtime
@@ -210,6 +211,71 @@ def getWeatherDataInterpolated(latitude, longitude, time, elevation):
     for key in beforeWeather:
         finalData[key] = beforeWeather[key]*beforeWeightingFactor + afterWeather[key]*afterWeightingFactor
     return finalData
+
+def linterp(x, x1, x2, y1, y2):
+    return ((x2 - x) / (x2 - x1)) * y1 + ((x - x1) / (x2 - x1)) * y2
+
+def getAltitudeAtPoint(latitude, longitude):
+    class point():
+        latitude = None
+        longitude = None
+        elevation = None
+        def __init__(self, lat, lon, ele):
+            self.latitude = lat
+            self.longitude = lon
+            self.elevation = ele
+    c.execute("""USE Django""")
+    c.execute("""SELECT latitude, longitude, elevation FROM Predictor_elevationpoint WHERE latitude BETWEEN %f AND %f AND longitude BETWEEN %f AND %f"""%(latitude-0.0001, latitude+0.0001, longitude-0.0001, longitude+0.0001))
+    results = c.fetchall()
+    c.execute("""USE test_dataset""")
+    results = [point(x[0], x[1], x[2]) for x in results]
+
+    lowerLat = -1
+    upperLat = 90
+    lowerLon = -360
+    upperLon = 361
+    exactLat = None
+    exactLon = None
+#    print results
+    for result in results:
+        if result.latitude == latitude and result.longitude == longitude:
+            return result.elevation
+        elif result.latitude == latitude:
+            exactLat = result.latitude
+        elif result.longitude == longitude:
+            exactLon = result.longitude
+        if result.latitude < latitude and result.latitude > lowerLat:
+            lowerLat = result.latitude
+        if result.latitude > latitude and result.latitude < upperLat:
+            upperLat = result.latitude
+        if result.longitude < longitude and result.longitude > lowerLon:
+            lowerLon = result.longitude
+        if result.longitude > longitude and result.longitude < upperLon:
+            upperLon = result.longitude
+
+    if exactLat:
+        xpoints = [x for x in results if x.latitude==exactLat and (x.longitude == lowerLon or x.longitude == upperLon)]
+        assert len(xpoints) == 2
+        return linterp(longitude, xpoints[0].longitude, xpoints[1].longitude, xpoints[0].elevation, xpoints[1].elevation)
+    elif exactLon:
+        ypoints = [x for x in results if x.longitude==exactLon and (x.latitude == lowerLat or x.latitude == upperLat)]
+        assert len(ypoints) == 2
+        return linterp(latitude, ypoints[0].latitude, ypoints[1].latitude, ypoints[0].elevation, ypoints[1].elevation)
+    else:
+        ypoints1 = [x for x in results if x.longitude==upperLon and (x.latitude == lowerLat or x.latitude == upperLat)]
+        ypoints2 = [x for x in results if x.longitude==lowerLon and (x.latitude == lowerLat or x.latitude == upperLat)]
+        try:
+            assert len(ypoints1) == 2
+            assert len(ypoints2) == 2
+        except:
+            print "ypoints1:", ypoints1, " ypoints2:", ypoints2
+            raise
+        xpt1 = linterp(latitude, ypoints1[0].latitude, ypoints1[1].latitude, ypoints1[0].elevation, ypoints1[1].elevation)
+        xpt2 = linterp(latitude, ypoints2[0].latitude, ypoints2[1].latitude, ypoints2[0].elevation, ypoints2[1].elevation)
+        return linterp(longitude, lowerLon, upperLon, xpt2, xpt1)
+
+
     
 if __name__ == "__main__":
-    print getWeatherDataInterpolated(34.2,-118.6, datetime.strptime('201707251230', '%Y%m%d%H%M'), 12000)
+    print getAltitudeAtPoint(34.5, -118.5)
+#    print getWeatherDataInterpolated(34.2,-118.6, datetime.strptime('201707251230', '%Y%m%d%H%M'), 12000)

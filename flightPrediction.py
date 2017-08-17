@@ -65,9 +65,17 @@ def runPrediction(prediction):
         if prediction.phase == 'ascent':
             if (prediction.burstPressure is not None) and weather["Pressure"] < prediction.burstPressure:
                 prediction.phase = "descent"
+                prediction.burstPoint = newpoint
             elif (prediction.burstAltitude is not None) and prediction.currentPoint.elevation > prediction.burstAltitude:
                 prediction.phase = "descent"
-        print newpoint
+                prediction.burstPoint = newpoint
+        if prediction.phase=='descent':
+            groundAlt = Analysis.getAltitudeAtPoint(newpoint.latitude, newpoint.longitude)
+            if newpoint.elevation < groundAlt:
+                print "Balloon landed. Terminating."
+                prediction.landingPoint = newpoint
+                break
+        #print newpoint
         #break #debugging
 
 

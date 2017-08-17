@@ -47,7 +47,7 @@ class FileIngestor():
             db.commit()
 
 if __name__ == "__main__":
-    foo = FileIngestor("/root/elevData/n35w118/", "n35w118_13")
+    foo = FileIngestor("/root/elevData/n36w119/", "n36w119_13")
     foo.dbHost = 'localhost'
     foo.dbUser = 'guest'
     foo.dbName = 'Django'

@@ -1,46 +1,85 @@
 {% extends "Predictor/Predictor.html" %}
 {% block title %}Prediction Map{% endblock %}
 {% block extrahead %}
-<style>
-      /* Always set the map height explicitly to define the size of the div
-       * element that contains the map. */
-      #map {
-        height: 100%;
-      }
-      /* Optional: Makes the sample page fill the window. */
-      html, body {
-        height: 90%;
-        margin: 0;
-        padding: 0;
-      }
-    </style>
+<link rel="stylesheet" type="text/css" href="/static/Predictor/map.css" /> 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
+   integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
+   crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"
+   integrity="sha512-lInM/apFSqyy1o6s89K4iQUKg6ppXEgsVxT35HbzUupEVRh2Eu9Wdl4tHj7dZO0s1uvplcYGmt3498TtHq+log=="
+   crossorigin=""></script>
 {% endblock %}
 {% block content %}
-    <div id="map"></div>
-    <script>
-      function initMap() {
-        var map = new google.maps.Map(document.getElementById('map'), {
-          zoom: 9,
-          center: {lat: {{preds.0.launchPoint.latitude}}, lng: {{preds.0.launchPoint.longitude}}},
-          mapTypeId: 'terrain'
-        });
-        
-        {% for pred in preds %}
-        var land{{pred.id}}Pos = {lat:{{pred.landingLatitude}}, lng:{{pred.landingLongitude}}};
 
-        var land{{pred.id}}Marker = new google.maps.Marker({
-            position:land{{pred.id}}Pos,
-            map: map,
-            title: 'Launch:{{pred.launchTime}} UTC \n Landing: {{pred.landingTime}} UTC',
-            label: '',
-        });
-        google.maps.event.addListener(land{{pred.id}}Marker, 'click', function() {
-            window.location.href = './map/{{pred.id}}';
-        });
-        {% endfor %}
-      }
-    </script>
-    <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCmbPrpVMnpqXwqj3Df-xBhaVqNDl8Zojc&callback=initMap">
-    </script>
+<div id="mapid" style="height: 600px;"></div>
+<div id="mapinfo">
+<span id="crsPos">
+<table>
+<th colspan=2>Cursor Position</th>
+<tr><td id='crsLat'></td><td id='crsLon'></td></tr>
+</table>
+</span>
+</div>
+
+<script>
+var streets = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.streets',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var satellite = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.satellite',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var streetsSatellite = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.streets-satellite',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var topo = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.outdoors',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var landingMarkers = L.layerGroup();
+{% for pred in preds %}
+
+var landing{{pred.id}}marker = L.circleMarker([{{pred.landingLatitude}}, {{pred.landingLongitude}}], {radius:5, color:"#ff0000", id:{{pred.id}}}).addTo(landingMarkers);
+landing{{pred.id}}marker.bindPopup("Launch: {{pred.launchTime}} UTC\nLanding: {{pred.landingTime}} UTC");
+landing{{pred.id}}marker.on('mouseover', function (e) {this.openPopup();});
+landing{{pred.id}}marker.on('mouseout', function (e) {this.closePopup();});
+landing{{pred.id}}marker.on('click', function(e) {window.location.href="map/{{pred.id}}";});
+{% endfor %}
+
+var overlays = {'Landings':landingMarkers};
+var baselayers = {
+    "Streets":streets,
+    "Satellite":satellite,
+    "Streets + Satellite":streetsSatellite,
+    "Topo": topo,
+}
+
+var mymap = L.map('mapid', {center:[{{preds.0.launchPoint.latitude}}, {{preds.0.launchPoint.longitude}}], zoom:10, layers:[streets, landingMarkers]});
+
+L.control.layers(baselayers, overlays).addTo(mymap);
+
+function onMapClick(e) {
+    latStr = Math.round(e.latlng.lat *1000)/1000
+    lonStr = Math.round(e.latlng.lng *1000)/1000
+    document.getElementById('crsLat').innerHTML=latStr;
+    document.getElementById('crsLon').innerHTML=lonStr;
+}
+
+mymap.on('mousemove', onMapClick);
+</script>
+
 {% endblock %}

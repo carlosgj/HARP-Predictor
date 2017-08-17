@@ -1,0 +1,11 @@
+#mapinfo table{
+    border: 2px solid black;
+    border-collapse: collapse;
+}
+#mapinfo td{
+    border: 1px solid black;
+    border-collapse: collapse;
+}
+#mapinfo span{
+    float: left;
+}

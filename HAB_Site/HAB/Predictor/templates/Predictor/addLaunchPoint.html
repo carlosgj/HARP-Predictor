@@ -1,0 +1,39 @@
+{% extends "Predictor/Predictor.html" %}
+{% block title %}Add New Launch Point{% endblock %}
+{% block content %}
+{% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+<form action="{% url 'Predictor:addLaunchPoint' %}" method="post">
+{% csrf_token %}
+{{form.non_field_errors}}
+<table>
+    <tr>
+        <td>{{form.name.errors}}{{form.name}}</td>
+        <td>Name</td>
+    </tr>
+    <tr>
+        <td>{{form.description.errors}}{{form.description}}</td>
+        <td>Description</td>
+    </tr>
+    <tr>
+        <td>{{form.latitude.errors}}{{form.latitude}}</td>
+        <td>Latitude</td>
+    </tr>
+    <tr>
+        <td>{{form.longitude.errors}}{{form.longitude}}</td>
+        <td>Longitude</td>
+    </tr>
+    <tr>
+        <td><table>
+            <tr><td>{{form.altitude.errors}}{{form.altitude}}</td></tr> 
+            <tr><td>OR</td></tr>
+            <tr><td>{{form.autoAltitude}}<strong>Auto</strong></td></tr>
+        </table></td>
+        <td>Launch Altitude (ft ASL)</td>
+    </tr>
+    <tr>
+        <td><input type="submit" value="Add" /></td>
+    </tr>
+</table>
+
+</form>
+{% endblock %}

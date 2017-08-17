@@ -1,0 +1,69 @@
+{% extends "Predictor/Predictor.html" %}
+{% block title %}Prediction Map{% endblock %}
+{% block extrahead %}
+<style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+{% endblock %}
+{% block content %}
+    <div id="map"></div>
+    <script>
+      function initMap() {
+        var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 8,
+          center: {lat: {{pred.launchPoint.latitude}}, lng: {{pred.launchPoint.longitude}}},
+          mapTypeId: 'terrain'
+        });
+
+        var flightCoordinates = [
+         // {lat: 37.772, lng: -122.214},
+            {% for point in points %}
+                {lat:{{point.latitude}}, lng:{{point.longitude}}},
+            {% endfor %}
+        ];
+        var flightPath = new google.maps.Polyline({
+            path: flightCoordinates,
+            geodesic: true,
+            strokeColor: '#FF0000',
+            strokeOpacity: 1.0,
+            strokeWeight: 2
+        });
+        
+        var launchPos = {lat:{{pred.launchPoint.latitude}}, lng:{{pred.launchPoint.longitude}}};
+        var burstPos = {lat:{{pred.burstLatitude}}, lng:{{pred.burstLongitude}}};
+        var landPos = {lat:{{pred.landingLatitude}}, lng:{{pred.landingLongitude}}};
+        var launchMarker = new google.maps.Marker({
+          position: launchPos,
+          map: map,
+          title: '{{pred.launchTime}} UTC',
+        label: 'Launch',
+        });
+        var burstMarker = new google.maps.Marker({
+          position: burstPos,
+          map: map,
+          title: '{{pred.burstTime}} UTC',
+        label: 'Burst',
+        });
+        var landMarker = new google.maps.Marker({
+            position:landPos,
+            map: map,
+            title: '{{pred.landingTime}} UTC',
+            label: 'Landing',
+        });
+        flightPath.setMap(map);
+      }
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCmbPrpVMnpqXwqj3Df-xBhaVqNDl8Zojc&callback=initMap">
+    </script>
+{% endblock %}

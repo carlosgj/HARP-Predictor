@@ -1,0 +1,14 @@
+* {
+    font-family: "Roboto", Sans;
+}
+
+.header {
+    text-align: center;
+    font-size: 300%;
+    background-color: #66ccff;
+}
+
+.header-text {
+    padding-top: 30px;
+    padding-bottom: 30px;
+}

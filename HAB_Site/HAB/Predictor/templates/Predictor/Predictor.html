@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block extrastyle %} <link rel="stylesheet" type="text/css" href="{% static "Predictor/style.css" %}" /> {% endblock %}
+
+{% block body %}
+<div class="header">
+<div class="header-text">
+Flight Path Predictor
+</div>
+</div>
+<div class="title">
+{% block title %}{% endblock %}
+</div>
+{% block content %}{% endblock %}
+{% endblock %}

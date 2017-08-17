@@ -1,0 +1,17 @@
+{% extends 'Predictor/Predictor.html' %}
+{% block title %}Predictions{% endblock %}
+{% block content %}
+<table class="predictionTable">
+<tr><th>ID</th><th>Launch Time (UTC)</th><th>Launch Site</th>
+<th>Ascent Rate</th><th>Descent Rate</th><th>Burst Altitude</th><th>Burst Elapsed Time</th><th>Landing Time (UTC)</th>
+<th>Landing Latitude</th><th>Landing Longitude</th><th>Landing Elapsed Time</th>
+</tr>
+{% for pred in prediction_list %}
+<tr>
+<td>{{pred.id}}</td><td>{{pred.launchTime}}</td><td>{{pred.launchPoint.name}}</td>
+<td>{{pred.ascentRate}}</td><td>{{pred.descentRate}}</td><td>{{pred.burstAltitude}}</td><td>{{pred.burstElapsed}}</td><td>{{pred.landingTime}}</td>
+<td>{{pred.landingLatitude}}</td><td>{{pred.landingLongitude}}</td><td>{{pred.landingElapsed}}</td>
+</tr>
+{% endfor %}
+<table>
+{% endblock %}

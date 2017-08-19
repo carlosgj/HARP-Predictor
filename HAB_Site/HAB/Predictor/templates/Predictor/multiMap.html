@@ -16,7 +16,19 @@
 <span id="crsPos">
 <table>
 <th colspan=2>Cursor Position</th>
-<tr><td id='crsLat'></td><td id='crsLon'></td></tr>
+<tr><td id="crsLat" style="width: 4em;"></td><td id="crsLon" style="width:4em;"></td></tr>
+</table>
+</span>
+<span>
+<table>
+<th>Launch Location</th>
+<tr><td>
+<select id="launchPointSelector" onchange="applyFilters()">
+{% for launchpoint in launchpoints %}
+<option value={{launchpoint.id}}>{{launchpoint.name}}</option>
+{% endfor %}
+</select>
+</td></tr>
 </table>
 </span>
 </div>
@@ -51,16 +63,28 @@ var topo = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?acc
 });
 
 var landingMarkers = L.layerGroup();
+var landingPoints = [];
 {% for pred in preds %}
-
-var landing{{pred.id}}marker = L.circleMarker([{{pred.landingLatitude}}, {{pred.landingLongitude}}], {radius:5, color:"#ff0000", id:{{pred.id}}}).addTo(landingMarkers);
-landing{{pred.id}}marker.bindPopup("Launch: {{pred.launchTime}} UTC\nLanding: {{pred.landingTime}} UTC");
-landing{{pred.id}}marker.on('mouseover', function (e) {this.openPopup();});
-landing{{pred.id}}marker.on('mouseout', function (e) {this.closePopup();});
-landing{{pred.id}}marker.on('click', function(e) {window.location.href="map/{{pred.id}}";});
+var marker = L.circleMarker([{{pred.landingLatitude}}, {{pred.landingLongitude}}], {radius:5, color:"#ff0000", id:{{pred.id}}, launchpoint:{{pred.launchPoint.id}}, });
+marker.bindPopup("ID: {{pred.id}}<br/>Launch: {{pred.launchTime}} UTC from {{pred.launchPoint.name}}<br/>Landing: {{pred.landingTime}} UTC");
+marker.on('mouseover', function (e) {this.openPopup();});
+marker.on('mouseout', function (e) {this.closePopup();});
+marker.on('click', function(e) {window.location.href="map/{{pred.id}}";});
+landingPoints.push(marker);
 {% endfor %}
 
-var overlays = {'Landings':landingMarkers};
+var burstMarkers = L.layerGroup();
+var burstPoints = [];
+{% for pred in preds %}
+var marker = L.circleMarker([{{pred.burstLatitude}}, {{pred.burstLongitude}}], {radius:5, color:"#00ff00", id:{{pred.id}}, launchpoint:{{pred.launchPoint.id}}, });
+marker.bindPopup("ID: {{pred.id}}<br/>Burst: {{pred.burstTime}} UTC");
+marker.on('mouseover', function (e) {this.openPopup();});
+marker.on('mouseout', function (e) {this.closePopup();});
+marker.on('click', function(e) {window.location.href="map/{{pred.id}}";});
+burstPoints.push(marker);
+{% endfor %}
+
+var overlays = {"Landings":landingMarkers, "Burst":burstMarkers,};
 var baselayers = {
     "Streets":streets,
     "Satellite":satellite,
@@ -71,6 +95,24 @@ var baselayers = {
 var mymap = L.map('mapid', {center:[{{preds.0.launchPoint.latitude}}, {{preds.0.launchPoint.longitude}}], zoom:10, layers:[streets, landingMarkers]});
 
 L.control.layers(baselayers, overlays).addTo(mymap);
+
+function applyFilters(e){
+    landingMarkers.clearLayers();
+    for(i=0; i < landingPoints.length; i++){
+        if(landingPoints[i].options.launchpoint == document.getElementById("launchPointSelector").value){
+            landingPoints[i].addTo(landingMarkers);
+        }
+    }
+
+    burstMarkers.clearLayers();
+    for(i=0; i < burstPoints.length; i++){
+        if(burstPoints[i].options.launchpoint == document.getElementById("launchPointSelector").value){
+            burstPoints[i].addTo(burstMarkers);
+        }
+    }
+}
+
+applyFilters();
 
 function onMapClick(e) {
     latStr = Math.round(e.latlng.lat *1000)/1000

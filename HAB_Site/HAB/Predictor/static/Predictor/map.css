@@ -1,6 +1,7 @@
 #mapinfo table{
     border: 2px solid black;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 #mapinfo td{
     border: 1px solid black;

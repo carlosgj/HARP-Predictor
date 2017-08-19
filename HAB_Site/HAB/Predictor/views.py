@@ -49,7 +49,8 @@ def Map(request, pred_id):
 
 def MultiMap(request):
     preds = Prediction.objects.exclude(landingLatitude__isnull=True)
-    return render(request, "Predictor/multiMap.html", {"preds":preds,})
+    launchpoints = launchLocation.objects.all()
+    return render(request, "Predictor/multiMap.html", {"preds":preds,'launchpoints':launchpoints,})
 
 def PredictionList(request):
     data = list(Prediction.objects.all())

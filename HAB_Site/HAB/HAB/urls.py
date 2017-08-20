@@ -17,7 +17,6 @@ from django.conf.urls import url, include
 from django.contrib import admin
 
 urlpatterns = [
-    url(r'^$',  include('Predictor.urls', namespace='Predictor')),
     url(r'^admin/', admin.site.urls),
     url(r'^Predictor/', include('Predictor.urls', namespace='Predictor')),
 ]

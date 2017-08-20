@@ -8,4 +8,5 @@ urlpatterns=[
     url(r'^map/(?P<pred_id>[0-9]+)\/?$', views.Map, name='map'),
     url(r'^multiMap\/?$', views.MultiMap, name='multimap'),
     url(r'^addLaunchPoint\/?$', views.addLaunchPoint, name="addLaunchPoint"),
+    url(r'^listLaunchPoints\/?$', views.LaunchPointList, name="launchPointList"),
 ]

@@ -66,3 +66,9 @@ def PredictionList(request):
             pred.landingElapsed = None
     context = {'prediction_list':data,}
     return render(request, 'Predictor/list.html', context)
+
+def LaunchPointList(request):
+    data = list(launchLocation.objects.all())
+    context = {'lp_list':data,}
+    return render(request, 'Predictor/listLaunchPoints.html', context)
+

@@ -2,6 +2,9 @@ import flightPrediction
 import MySQLdb
 import logging
 import datetime
+from multiprocessing.dummy import Pool as ThreadPool
+from multiprocessing import cpu_count as cpu_count
+pool = ThreadPool(1)
 logger = logging.getLogger(__name__)
 
 logger.setLevel(logging.DEBUG)
@@ -21,7 +24,7 @@ c = db.cursor()
 c.execute("""DELETE FROM Predictor_predictionpoint""")
 c.execute("""DELETE FROM Predictor_prediction""")
 
-intervalHours = 2
+intervalHours = 4
 ascentRate = 7
 descentRate = 15
 burstAltitude=60000
@@ -48,6 +51,7 @@ for i in _launchpoints:
     this['altitude'] = i[3]
     launchpoints.append(this)
 
+allPredictions = []
 currentStep = 0
 while currentStep*intervalHours < 384:
     for launchpoint in launchpoints:
@@ -55,16 +59,33 @@ while currentStep*intervalHours < 384:
         print launchPt
         thisPred = flightPrediction.Prediction(launchPt, ascentRate, descentRate, burstAltitude=burstAltitude)
         thisPred.path = []
-        try:
-            flightPrediction.runPrediction(thisPred)
-        except:
-            logger.error("Could not run prediction for lauchpoint %d at %s using prediction from %s."%(launchpoint['id'], launchPt.time.strftime("%Y-%m-%d %H:%M:%S"), latestPredTime.strftime("%Y-%m-%d %H:%M:%S")))
-            #raise
-        else:
-            c.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, burstTime, burstLatitude, burstLongitude, landingTime, landingLatitude, landingLongitude, usingPrediction, ascentRate, descentRate, burstAltitude, landingAltitude) VALUES (%d, '%s', '%s', %f, %f, '%s', %f, %f, '%s', %f, %f, %d, %d)"""%(launchpoint['id'], launchPt.time.strftime('%Y-%m-%d %H:%M:%S'), thisPred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), thisPred.burstPoint.latitude, thisPred.burstPoint.longitude, thisPred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), thisPred.landingPoint.latitude, thisPred.landingPoint.longitude, latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate, thisPred.burstPoint.elevation, thisPred.landingPoint.elevation))
-            thisPredictionID = c.lastrowid
-            for point in thisPred.path:
-                c.execute("""INSERT INTO Predictor_predictionpoint (latitude, longitude, altitude, time, prediction_id) VALUES (%f, %f, %f, '%s', %d)"""%(point.latitude, point.longitude, point.elevation, point.time.strftime('%Y-%m-%d %H:%M:%S'), thisPredictionID))
+        thisPred.launchPointID = launchpoint['id']
+        allPredictions.append(thisPred)
     currentStep += 1
+
+def runit(pred):
+    print "Running prediction for ", pred.launchPoint.time
+    try:
+        flightPrediction.runPrediction(pred)
+    except:
+        logger.error("Could not run prediction for launchpoint %d at %s using prediction from %s. Last point:%s"%(pred.launchPointID, pred.launchPoint.time.strftime("%Y-%m-%d %H:%M:%S"), latestPredTime.strftime("%Y-%m-%d %H:%M:%S"), str(pred.path[-1])))
+        #raise
+    else:
+        c.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, burstTime, burstLatitude, burstLongitude, landingTime, landingLatitude, landingLongitude, usingPrediction, ascentRate, descentRate, burstAltitude, landingAltitude) VALUES (%d, '%s', '%s', %f, %f, '%s', %f, %f, '%s', %f, %f, %d, %d)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate, pred.burstPoint.elevation, pred.landingPoint.elevation))
+        thisPredictionID = c.lastrowid
+        print "Points:"
+        if not pred.path:
+            assert False
+        for point in pred.path:
+            #print point
+            c.execute("""INSERT INTO Predictor_predictionpoint (latitude, longitude, altitude, groundElevation, time, prediction_id) VALUES (%f, %f, %f, %f, '%s', %d)"""%(point.latitude, point.longitude, point.elevation, point.groundAlt, point.time.strftime('%Y-%m-%d %H:%M:%S'), thisPredictionID))
+
+#for pred in allPredictions:
+#    print pred.launchPoint.time
+#assert False
+for pred in allPredictions:
+    runit(pred)
+
+
 db.commit()
 

@@ -1,0 +1,138 @@
+{% extends 'Predictor/Predictor.html' %}
+{% block title %}Weather Data Analysis{% endblock %}
+
+{% block extrahead %}
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.0/Chart.bundle.js"></script>
+{% endblock %}
+
+{% block content %}
+<div id="statusbar"></div>
+<div id="analysisSelector" style="display:none">
+    <input type="radio" name="analysisType" value="temporal" onchange="analysisTypeChange(this)">Temporal Plot</input>
+    <input type="radio" name="analysisType" value="geo" onchange="analysisTypeChange(this)">Geographical Plot</input>
+</div>
+<div id="filters"></div>
+<div id="dataArea"></div>
+<script>
+var lats = [];
+var lons = [];
+var measurementTypes = [];
+var isobars = [];
+var weatherData = null;
+$(function (){
+    $( "div#statusbar" ).text("Getting JSON from server...");
+
+    $.getJSON("../getWeatherDataJson/{{table}}", function(data) {
+        weatherData = data;
+        console.log("Have data...");
+        $.each(data, function(idx, val){
+            if(lats.indexOf(val["Latitude"])===-1){
+                lats.push(val["Latitude"]);
+            }
+            if(lons.indexOf(val["Longitude"])===-1){
+                lons.push(val["Longitude"]);
+            }
+            if(isobars.indexOf(val["Isobar"])===-1){
+                isobars.push(val["Isobar"]);
+            }
+            $.each(val, function(key, datum){
+                if(key != "Latitude" && key != "Longitude" && key != "ValueTime" && key != "Resolution" && key != "Isobar"){
+                    if(measurementTypes.indexOf(key)===-1){
+                        measurementTypes.push(key);
+                    }
+                }
+            });
+        });
+        console.log(measurementTypes);
+        $( "div#statusbar" ).text("Data loaded! ("+data.length+" datapoints)");
+        $( "div#analysisSelector" ).css("display", "block");
+    });
+
+
+
+});
+
+function analysisTypeChange(e){
+    switch(e.value){
+        case "geo":
+            break;
+        case "temporal":
+            var tempoFilters = "<table><tr>";
+            tempoFilters += "<td>Latitude:<\/td><td>";
+            tempoFilters += "<select id=latSel onchange=\"updateCharts()\">";
+            for(i=0; i < lats.length;i++){
+                tempoFilters += ("<option value=\""+lats[i]+"\">"+lats[i]+"<\/option>");
+            }
+            tempoFilters += "<\/select><\/td>"
+            tempoFilters += "<td>Longitude:<\/td><td>";
+            tempoFilters += "<select id=lonSel onchange=\"updateCharts()\">";
+            for(i=0; i < lons.length;i++){
+                tempoFilters += ("<option value=\""+lons[i]+"\">"+lons[i]+"<\/option>");
+            }
+            tempoFilters += "<\/select><\/td>"
+            tempoFilters += "<td>Isobar:<\/td><td>";
+            tempoFilters += "<select id=isobarSel onchange=\"updateCharts()\">";
+            for(i=0; i < isobars.length;i++){
+                tempoFilters += ("<option value=\""+isobars[i]+"\">"+isobars[i]+"<\/option>");
+            }
+            tempoFilters += "<\/select><\/td>"
+            tempoFilters += "<\/tr><\/table>";
+            document.getElementById("filters").innerHTML=tempoFilters;
+            
+            updateCharts();            
+            break;
+    }
+}
+
+function updateCharts(){
+    var canvasBlob = "";
+    for(i=0; i < measurementTypes.length; i++){
+        var chartName = measurementTypes[i] + "chart";
+        canvasBlob += "<canvas class=\"chart\" id=\"";
+        canvasBlob += chartName;
+        canvasBlob += "\" width=\"100%\" height=\"35em\"><\/canvas>";
+    }
+    document.getElementById("dataArea").innerHTML = canvasBlob;
+
+    var reducedData = [];
+    $.each(weatherData, function(idx, val){
+        if(val["Latitude"] == $("#latSel").val() && val["Longitude"] == $("#lonSel").val() && val["Isobar"] == $("#isobarSel").val()){
+            reducedData.push(val);
+        }
+    });
+    reducedData.sort(function(a,b) {return (a["ValueTime"] > b["ValueTime"]) ? 1 : ((b["ValueTime"] > a["ValueTime"]) ? -1 : 0);} );
+    var valuetimes = [];
+    for(i=0; i < reducedData.length; i++){
+        var dtString = reducedData[i]["ValueTime"];
+        valuetimes.push(new Date(dtString));
+    }
+    for(i=0; i < measurementTypes.length; i++){
+        var ctx = document.getElementById(measurementTypes[i]+"chart").getContext('2d');
+        var thisdata = [];
+        for(j=0; j < reducedData.length; j++){
+            thisdata.push(reducedData[j][measurementTypes[i]]);
+        }
+        var myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: valuetimes,
+                datasets: [{
+                    label: measurementTypes[i],
+                    data: thisdata
+                }]
+            },
+            options: {
+                scales: {
+                    xAxes: [{
+                        type: 'time',
+                        distribution: 'linear'
+                    }]
+                }
+            }
+        });
+    }
+}
+</script>
+
+{% endblock %}

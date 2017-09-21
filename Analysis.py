@@ -236,7 +236,7 @@ def getAltitudeAtPoint(latitude, longitude):
     upperLon = 361
     exactLat = None
     exactLon = None
-#    print results
+    #print results
     for result in results:
         if result.latitude == latitude and result.longitude == longitude:
             return result.elevation
@@ -269,6 +269,7 @@ def getAltitudeAtPoint(latitude, longitude):
             assert len(ypoints2) == 2
         except:
             print "ypoints1:", ypoints1, " ypoints2:", ypoints2
+            print latitude, longitude
             raise
         xpt1 = linterp(latitude, ypoints1[0].latitude, ypoints1[1].latitude, ypoints1[0].elevation, ypoints1[1].elevation)
         xpt2 = linterp(latitude, ypoints2[0].latitude, ypoints2[1].latitude, ypoints2[0].elevation, ypoints2[1].elevation)

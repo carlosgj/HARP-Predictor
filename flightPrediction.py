@@ -47,6 +47,8 @@ def runPrediction(prediction):
     prediction.currentPoint = prediction.launchPoint
     print "Launch point:", prediction.launchPoint
     while(True):
+        groundAlt = Analysis.getAltitudeAtPoint(prediction.currentPoint.latitude, prediction.currentPoint.longitude)
+        prediction.currentPoint.groundAlt = groundAlt
         #Copy point into path
         prediction.path.append(copy.deepcopy(prediction.currentPoint))
         #Get weather at point
@@ -69,8 +71,8 @@ def runPrediction(prediction):
             elif (prediction.burstAltitude is not None) and prediction.currentPoint.elevation > prediction.burstAltitude:
                 prediction.phase = "descent"
                 prediction.burstPoint = newpoint
+                print "Balloon burst at ",newpoint.latitude, newpoint.longitude
         if prediction.phase=='descent':
-            groundAlt = Analysis.getAltitudeAtPoint(newpoint.latitude, newpoint.longitude)
             if newpoint.elevation < groundAlt:
                 print "Balloon landed. Terminating."
                 prediction.landingPoint = newpoint

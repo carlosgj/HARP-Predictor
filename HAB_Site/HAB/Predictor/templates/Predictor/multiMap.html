@@ -62,6 +62,10 @@ var topo = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?acc
     accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
 });
 
+var sectional = L.tileLayer('https://d1pc149g092dlb.cloudfront.net/Maps/Tiles/Sectional/Z{z}/{y}/{x}.png',{
+    maxZoom:11,
+});
+
 var landingMarkers = L.layerGroup();
 var landingPoints = [];
 {% for pred in preds %}
@@ -84,15 +88,26 @@ marker.on('click', function(e) {window.location.href="map/{{pred.id}}";});
 burstPoints.push(marker);
 {% endfor %}
 
-var overlays = {"Landings":landingMarkers, "Burst":burstMarkers,};
+var elevationDataBoundaries = L.layerGroup();
+{% for square in elevData %}
+L.polygon([[{{square.lat}}+0.5, {{square.lon}}-0.5],[{{square.lat}}+0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}-0.5]], {color:"blue"}).addTo(elevationDataBoundaries);
+{% endfor %}
+
+var overlays = {"Landings":landingMarkers, "Burst":burstMarkers, "Elevation Data":elevationDataBoundaries,};
 var baselayers = {
     "Streets":streets,
     "Satellite":satellite,
     "Streets + Satellite":streetsSatellite,
     "Topo": topo,
+    "Airspace": sectional,
 }
 
+{% if preds %}
 var mymap = L.map('mapid', {center:[{{preds.0.launchPoint.latitude}}, {{preds.0.launchPoint.longitude}}], zoom:10, layers:[streets, landingMarkers]});
+{% else %}
+var mymap = L.map('mapid', {center:[34.237, -118.254], zoom:10, layers:[streets, landingMarkers]});
+{% endif %}
+
 
 L.control.layers(baselayers, overlays).addTo(mymap);
 

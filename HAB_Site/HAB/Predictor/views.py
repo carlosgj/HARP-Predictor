@@ -1,9 +1,11 @@
 from django.shortcuts import render
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from .models import Prediction, elevationPoint, getAltitudeAtPoint, PredictionPoint, launchLocation
 from datetime import datetime, timedelta
 from .forms import NewPredictionForm, NewLaunchPointForm
 from django.views import generic
+
+import MySQLdb
 
 def addLaunchPoint(request):
     #If we're getting submitted data
@@ -45,12 +47,21 @@ def index(request):
 def Map(request, pred_id):
     pred = Prediction.objects.get(pk=pred_id)
     points = PredictionPoint.objects.filter(prediction=pred).order_by('time')
+    print pred_id
+    print points
     return render(request, "Predictor/map.html", {"pred":pred, 'points':points})
 
 def MultiMap(request):
     preds = Prediction.objects.exclude(landingLatitude__isnull=True)
     launchpoints = launchLocation.objects.all()
-    return render(request, "Predictor/multiMap.html", {"preds":preds,'launchpoints':launchpoints,})
+    elevationSquares = []
+    for i in range(33, 36):
+        for j in range (-120, -116):
+            result = elevationPoint.objects.filter(latitude=i+0.5)
+            result = result.filter(longitude=j+0.5)
+            if result:
+                elevationSquares.append({'lat':i+0.5, 'lon':j+0.5})
+    return render(request, "Predictor/multiMap.html", {"preds":preds,'launchpoints':launchpoints,'elevData':elevationSquares,})
 
 def PredictionList(request):
     data = list(Prediction.objects.all())
@@ -72,3 +83,54 @@ def LaunchPointList(request):
     context = {'lp_list':data,}
     return render(request, 'Predictor/listLaunchPoints.html', context)
 
+def WeatherDataList(request):
+    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='localhost')
+    wdcrs = wdb.cursor()
+    wdcrs.execute("""SELECT tableName, predictionTime FROM setIndex""")
+    rawResults = wdcrs.fetchall()
+    wdb.close()
+    data = []
+    for i in rawResults:
+        this = {}
+        this["tableName"] = i[0]
+        this["predictionTime"] = i[1]
+        data.append(this)
+    context = {'weather_list':data,}
+    return render(request, 'Predictor/weatherList.html', context)
+
+def WeatherDataJson(request, table_name):
+    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='localhost')
+    wdcrs = wdb.cursor()
+    print "Getting data..."
+    try:
+        wdcrs.execute("""SELECT ValueTime, Resolution, Latitude, Longitude, Isobar, HGT, TMP, UGRD, VGRD FROM %s"""%table_name)
+    except MySQLdb.ProgrammingError, e:
+        if e.args[0] == 1146:
+            return HttpResponse("No such table in db!")
+        else:
+            raise e
+    print "Fetching data..."
+    rawResults = wdcrs.fetchall()
+    wdb.close()
+    print "Processing data..."
+    rows = []
+    for i in rawResults:
+        this = {
+        "ValueTime":    i[0],
+        "Resolution":   i[1],
+        "Latitude":     i[2],
+        "Longitude":    i[3],
+        "Isobar":       i[4],
+        "HGT":          i[5],
+        "TMP":          i[6],
+        "UGRD":         i[7],
+        "VGRD":         i[8],
+        }
+        rows.append(this)
+    context = {'rows':rows}
+    print "Returning data..."
+    return JsonResponse(rows, safe=False)
+
+def ShowWeatherData(request, table_name):
+    context = {'table':table_name}
+    return render(request, 'Predictor/weatherDataAnalysis.html', context)

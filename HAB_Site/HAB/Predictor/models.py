@@ -38,6 +38,7 @@ class PredictionPoint(models.Model):
     latitude = models.FloatField()
     longitude = models.FloatField()
     altitude = models.IntegerField()
+    groundElevation = models.IntegerField()
     time = models.DateTimeField()
     pressure = models.FloatField(null=True)
     temperature = models.IntegerField(null=True)
@@ -48,8 +49,6 @@ class elevationPoint(models.Model):
     latitude = models.FloatField("Latitude")
     longitude = models.FloatField("Longitude")
     elevation = models.FloatField("Elevation")
-    class Meta:
-        index_together=[["latitude","longitude"]]
     def __str__(self):
         return "%f, %f: %f"%(self.latitude, self.longitude, self.elevation)
 

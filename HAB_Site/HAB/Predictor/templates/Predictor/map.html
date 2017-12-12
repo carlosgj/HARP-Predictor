@@ -52,6 +52,10 @@ var topo = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?acc
     accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
 });
 
+var sectional = L.tileLayer('https://d1pc149g092dlb.cloudfront.net/Maps/Tiles/Sectional/Z{z}/{y}/{x}.png',{
+    maxZoom:11,
+});
+
 mymap.addLayer(streets);
 
 var landingMarker = L.circleMarker([{{pred.landingLatitude}}, {{pred.landingLongitude}}], {radius:5, color:"#ff0000", id:{{pred.id}}}).addTo(mymap);
@@ -83,6 +87,7 @@ var baselayers = {
     "Satellite":satellite,
     "Streets + Satellite":streetsSatellite,
     "Topo": topo,
+    "Airspace": sectional,
 }
 
 L.control.layers(baselayers, overlays).addTo(mymap);

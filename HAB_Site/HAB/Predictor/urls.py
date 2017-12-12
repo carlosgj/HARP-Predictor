@@ -9,4 +9,7 @@ urlpatterns=[
     url(r'^multiMap\/?$', views.MultiMap, name='multimap'),
     url(r'^addLaunchPoint\/?$', views.addLaunchPoint, name="addLaunchPoint"),
     url(r'^listLaunchPoints\/?$', views.LaunchPointList, name="launchPointList"),
+    url(r'^listPreds\/?$', views.WeatherDataList, name="weatherdatalist"),
+    url(r'^getWeatherDataJson/(?P<table_name>gfs\d{10})\/?$', views.WeatherDataJson, name="weatherdatajson"),
+    url(r'^showWeatherData/(?P<table_name>gfs\d{10})\/?$', views.ShowWeatherData, name="showweatherdata"),
 ]

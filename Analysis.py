@@ -3,7 +3,7 @@ from datetime import datetime
 from collections import defaultdict
 import logging
 logger = logging.getLogger(__name__)
-db=MySQLdb.connect(host='delta.carlosgj.org', user='readonly', passwd='',db="test_dataset")
+db=MySQLdb.connect(host='localhost', user='readonly', passwd='',db="test_dataset")
 c = db.cursor()
 latestTable = None
 MBTables = {}
@@ -17,7 +17,7 @@ def getLatestTable():
     tables = [int(x[0].lstrip("gfs")) for x in raw if x[0].startswith("gfs")]
     latestNum = max(tables)
     latestTable = "gfs"+str(latestNum)
-    print "Using table:", latestTable
+    logger.info("Using table %s"%latestTable)
     return latestTable
     
 def getHGTsforExact(latitude, longitude, resolution, time):
@@ -73,6 +73,10 @@ def bracketElevation(latitude, longitude, time, elevation):
     lowerElevation = 0
     upperElevation = 1000000
     sortedKeys = sorted(table.keys())
+    if elevation < sortedKeys[0]:
+        retDict['lowerElevation'] = retDict['upperElevation'] = sortedKeys[0]
+        retDict['lowerIsobar'] = retDict['upperIsobar'] = table[sortedKeys[0]]
+        logger.warning("Elevation %f is lower than minimum isobar elevation %f. Assuming %f."%(elevation, sortedKeys[0], sortedKeys[0]))
     for idx, hgt in enumerate(sortedKeys):
         if  hgt < elevation:
             retDict['lowerElevation']=hgt
@@ -86,11 +90,15 @@ def bracketElevation(latitude, longitude, time, elevation):
 def getZPlaneAverage(latitude, longitude, time, elevation):
     points = bracketElevation(latitude, longitude, time, elevation)
     if (not points['lowerIsobar']) or (not points['upperIsobar']):
-        print points
+        print latitude, longitude, time, elevation, points
+        print "YOU NEED TO IMPLEMENT ERROR HANDLING MOTHERFUCKER"
         return
         #TODO: error handling
-    upperWeightingFactor = (float(elevation)-points['lowerElevation'])/(points['upperElevation']-points['lowerElevation'])
-    lowerWeightingFactor = (points['upperElevation']-float(elevation))/(points['upperElevation']-points['lowerElevation'])
+    try:
+        upperWeightingFactor = (float(elevation)-points['lowerElevation'])/(points['upperElevation']-points['lowerElevation'])
+        lowerWeightingFactor = (points['upperElevation']-float(elevation))/(points['upperElevation']-points['lowerElevation'])
+    except ZeroDivisionError:
+        upperWeightingFactor = lowerWeightingFactor = 0.5
     meanPressure = upperWeightingFactor*points['upperIsobar']+lowerWeightingFactor*points['lowerIsobar']
 
     #Get weather data at lower point
@@ -215,7 +223,7 @@ def getWeatherDataInterpolated(latitude, longitude, time, elevation):
 def linterp(x, x1, x2, y1, y2):
     return ((x2 - x) / (x2 - x1)) * y1 + ((x - x1) / (x2 - x1)) * y2
 
-def getAltitudeAtPoint(latitude, longitude):
+def getAltitudePoints(latitude, longitude):
     class point():
         latitude = None
         longitude = None
@@ -227,17 +235,23 @@ def getAltitudeAtPoint(latitude, longitude):
     c.execute("""USE Django""")
     c.execute("""SELECT latitude, longitude, elevation FROM Predictor_elevationpoint WHERE latitude BETWEEN %f AND %f AND longitude BETWEEN %f AND %f"""%(latitude-0.0001, latitude+0.0001, longitude-0.0001, longitude+0.0001))
     results = c.fetchall()
+    if not results:
+        logger.critical("Could not find altitude data for latitude %f, longitude %f. Balloon may be out of database limits."%(latitude, longitude))
     c.execute("""USE test_dataset""")
     results = [point(x[0], x[1], x[2]) for x in results]
+    return results
 
+
+def getAltitudeAtPoint(latitude, longitude):
+    approximatePoints = getAltitudePoints(latitude, longitude)
     lowerLat = -1
     upperLat = 90
     lowerLon = -360
     upperLon = 361
     exactLat = None
     exactLon = None
-#    print results
-    for result in results:
+    #print results
+    for result in approximatePoints:
         if result.latitude == latitude and result.longitude == longitude:
             return result.elevation
         elif result.latitude == latitude:
@@ -254,21 +268,22 @@ def getAltitudeAtPoint(latitude, longitude):
             upperLon = result.longitude
 
     if exactLat:
-        xpoints = [x for x in results if x.latitude==exactLat and (x.longitude == lowerLon or x.longitude == upperLon)]
+        xpoints = [x for x in approximatePoints if x.latitude==exactLat and (x.longitude == lowerLon or x.longitude == upperLon)]
         assert len(xpoints) == 2
         return linterp(longitude, xpoints[0].longitude, xpoints[1].longitude, xpoints[0].elevation, xpoints[1].elevation)
     elif exactLon:
-        ypoints = [x for x in results if x.longitude==exactLon and (x.latitude == lowerLat or x.latitude == upperLat)]
+        ypoints = [x for x in approximatePoints if x.longitude==exactLon and (x.latitude == lowerLat or x.latitude == upperLat)]
         assert len(ypoints) == 2
         return linterp(latitude, ypoints[0].latitude, ypoints[1].latitude, ypoints[0].elevation, ypoints[1].elevation)
     else:
-        ypoints1 = [x for x in results if x.longitude==upperLon and (x.latitude == lowerLat or x.latitude == upperLat)]
-        ypoints2 = [x for x in results if x.longitude==lowerLon and (x.latitude == lowerLat or x.latitude == upperLat)]
+        ypoints1 = [x for x in approximatePoints if x.longitude==upperLon and (x.latitude == lowerLat or x.latitude == upperLat)]
+        ypoints2 = [x for x in approximatePoints if x.longitude==lowerLon and (x.latitude == lowerLat or x.latitude == upperLat)]
         try:
             assert len(ypoints1) == 2
             assert len(ypoints2) == 2
         except:
             print "ypoints1:", ypoints1, " ypoints2:", ypoints2
+            print latitude, longitude
             raise
         xpt1 = linterp(latitude, ypoints1[0].latitude, ypoints1[1].latitude, ypoints1[0].elevation, ypoints1[1].elevation)
         xpt2 = linterp(latitude, ypoints2[0].latitude, ypoints2[1].latitude, ypoints2[0].elevation, ypoints2[1].elevation)
@@ -277,5 +292,13 @@ def getAltitudeAtPoint(latitude, longitude):
 
     
 if __name__ == "__main__":
-    print getAltitudeAtPoint(34.5, -118.5)
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+#    print getAltitudeAtPoint(34.5, -118.5)
 #    print getWeatherDataInterpolated(34.2,-118.6, datetime.strptime('201707251230', '%Y%m%d%H%M'), 12000)
+    getZPlaneAverage(34.0, -118.0, datetime.strptime("2017-12-12 18:00:00", "%Y-%m-%d %H:%M:%S"),  235.915192451)

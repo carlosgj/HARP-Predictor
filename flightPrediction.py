@@ -44,13 +44,31 @@ class Prediction():
 def runPrediction(prediction):
     assert (prediction.burstPressure is not None) or (prediction.burstAltitude is not None)
     prediction.phase = 'ascent'
+    ascendingFlag = True
     prediction.currentPoint = prediction.launchPoint
     print "Launch point:", prediction.launchPoint
     while(True):
+        pts = Analysis.getAltitudePoints(prediction.currentPoint.latitude, prediction.currentPoint.longitude)
+        try:
+            roughelevation = max([x.elevation for x in pts])
+        except ValueError:
+            logger.error("Balloon reached edge of altitude data at %f, %f, %f ft."%(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.path[-1].groundAlt))
+            break
+        if (len(prediction.path) == 0 or prediction.currentPoint.elevation > (roughelevation + 1000)) and not ascendingFlag:
+            groundAlt = roughelevation
+        else:
+            groundAlt = Analysis.getAltitudeAtPoint(prediction.currentPoint.latitude, prediction.currentPoint.longitude)
+        #print prediction.currentPoint.latitude, prediction.currentPoint.longitude, groundAlt, roughelevation
+        if ascendingFlag and prediction.currentPoint.elevation > roughelevation:
+            ascendingFlag = False
+        prediction.currentPoint.groundAlt = groundAlt
         #Copy point into path
         prediction.path.append(copy.deepcopy(prediction.currentPoint))
         #Get weather at point
-        weather = Analysis.getWeatherDataInterpolated(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.currentPoint.time, prediction.currentPoint.elevation/feetPerMeter)
+        try:
+            weather = Analysis.getWeatherDataInterpolated(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.currentPoint.time, prediction.currentPoint.elevation/feetPerMeter)
+        except:
+            print prediction.currentPoint
         newpoint = geoTimePoint(time=prediction.currentPoint.time+timedelta(seconds=iterationIntervalSeconds))
         if prediction.phase == "ascent":
             newpoint.elevation = prediction.currentPoint.elevation + (iterationIntervalSeconds*prediction.ascentRate)
@@ -69,8 +87,8 @@ def runPrediction(prediction):
             elif (prediction.burstAltitude is not None) and prediction.currentPoint.elevation > prediction.burstAltitude:
                 prediction.phase = "descent"
                 prediction.burstPoint = newpoint
+                print "Balloon burst at ",newpoint.latitude, newpoint.longitude
         if prediction.phase=='descent':
-            groundAlt = Analysis.getAltitudeAtPoint(newpoint.latitude, newpoint.longitude)
             if newpoint.elevation < groundAlt:
                 print "Balloon landed. Terminating."
                 prediction.landingPoint = newpoint

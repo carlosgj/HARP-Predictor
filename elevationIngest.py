@@ -43,11 +43,11 @@ class FileIngestor():
             for xIdx, val in enumerate(row):
                 elevFeet = val*feetPerMeter
                 long = self.west+(xIdx*longIncrement)
-                c.execute("""INSERT INTO %s (latitude, longitude, elevation) VALUES (%f, %f, %f)"""%(self.dbTable, lat, long, elevFeet))
+                c.execute("""INSERT INTO %s (latitude, longitude, elevation) VALUES (%f, %f, %f) ON DUPLICATE KEY UPDATE elevation=VALUES(elevation)"""%(self.dbTable, lat, long, elevFeet))
             db.commit()
 
 if __name__ == "__main__":
-    foo = FileIngestor("/root/elevData/n36w119/", "n36w119_13")
+    foo = FileIngestor("/root/elevData/n35w117/", "n35w117_13")
     foo.dbHost = 'localhost'
     foo.dbUser = 'guest'
     foo.dbName = 'Django'

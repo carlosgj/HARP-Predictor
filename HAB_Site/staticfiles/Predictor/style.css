@@ -1,0 +1,20 @@
+.title {
+    text-align: center;
+    font-size: 200%;
+    padding-top:20px;
+    padding-bottom: 20px;    
+    border-bottom: solid;
+}
+
+.predictionTable {
+    border:1px solid black;
+    border-collapse: collapse;
+}
+
+.predictionTable td {
+    border:1px solid black;
+}
+
+.predictionTable th {
+    border:3px solid black;
+}

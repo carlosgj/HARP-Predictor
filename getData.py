@@ -5,6 +5,7 @@ import MySQLdb
 import _mysql_exceptions
 import GRIBparser
 import logging
+from time import sleep
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def updateDataset(valueTime, resolution):
     if resolution == 0.5:
         resolutionStr = '0.50'
     #Table name format: gfsYYYYMMDDHH (of prediction)
-    db=MySQLdb.connect(host='delta.carlosgj.org', user='guest', passwd='',db="test_dataset")
+    db=MySQLdb.connect(host='localhost', user='guest', passwd='',db="test_dataset")
     c = db.cursor()
     c.execute("USE test_dataset")
     #Get time of latest NOMADS prediction
@@ -165,8 +166,23 @@ def generateURL(latTop, latBot, longLeft, longRight, dataTime, predictionTime, r
     return bigURL
     
 def downloadFile(url):
-    response = urllib2.urlopen(url)
-    html = response.read()
+    attemptCount = 0
+    html = None
+    while(attemptCount < 4):
+        print "Attempt:", attemptCount
+        attemptCount += 1
+        try:
+            response = urllib2.urlopen(url)
+            html = response.read()
+            print "html?:", (html is not None)
+        except Exception as e:
+            if str(e) == "HTTP Error 404: data file not present":
+                print "File not present. Waiting and retrying..."
+                sleep(30)
+                continue
+            else:
+                raise
+        break
     return html
 
 def getAllLatestData():

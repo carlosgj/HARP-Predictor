@@ -2,6 +2,7 @@ from osgeo import gdal
 import os
 import xml.etree.ElementTree as ET
 import MySQLdb
+import urllib
 
 feetPerMeter = 3.28084
 
@@ -44,10 +45,36 @@ class FileIngestor():
                 elevFeet = val*feetPerMeter
                 long = self.west+(xIdx*longIncrement)
                 c.execute("""INSERT INTO %s (latitude, longitude, elevation) VALUES (%f, %f, %f) ON DUPLICATE KEY UPDATE elevation=VALUES(elevation)"""%(self.dbTable, lat, long, elevFeet))
+                #print """INSERT INTO %s (latitude, longitude, elevation) VALUES (%f, %f, %f) ON DUPLICATE KEY UPDATE elevation=VALUES(elevation)"""%(self.dbTable, lat, long, elevFeet)
             db.commit()
 
 if __name__ == "__main__":
-    foo = FileIngestor("/root/elevData/n35w117/", "n35w117_13")
+    tempdir = "/root/elevData"
+    centerLat = float(raw_input("Center latitude:"))
+    centerLon = float(raw_input("Center longitude:"))
+    assert centerLat % 1 == 0.5 and centerLon % 1 == 0.5
+    cornerLat = centerLat + 0.5
+    cornerLon = centerLon - 0.5
+    urlPrefix = """https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/IMG/"""
+    if cornerLon <  0:
+        lonPrefix = 'w'
+        cornerLon *= -1
+    else:
+        lonPrefix = 'e'
+    if cornerLat < 0:
+        latPrefix = 's'
+        cornerLat *= -1
+    else:
+        latPrefix = 'n'
+    gridname = latPrefix + str(int(cornerLat)) + lonPrefix + str(int(cornerLon))
+    url = urlPrefix + gridname + ".zip"
+    print "Downloading %s..."%url
+    os.chdir(tempdir)
+    os.mkdir(gridname)
+    os.chdir(gridname)
+    urllib.urlretrieve(url, os.path.join(tempdir, gridname, gridname+'.zip'))
+    os.system("unzip %s.zip"%gridname)
+    foo = FileIngestor(os.path.join(tempdir, gridname), "%s_13"%gridname)
     foo.dbHost = 'localhost'
     foo.dbUser = 'guest'
     foo.dbName = 'Django'

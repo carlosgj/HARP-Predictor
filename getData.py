@@ -47,6 +47,7 @@ def updateDataset(valueTime, resolution):
                 PRIMARY KEY (ValueTime, Resolution, Latitude, Longitude, Isobar) \
                 )"%presumptiveTableName)
             c.execute("INSERT INTO setIndex (tableName, predictionTime) VALUES (%s, %s)",(presumptiveTableName, latestAvailable))
+            db.commit()
         else:
             raise
     #Check if desired value time already exists in table 
@@ -86,7 +87,7 @@ def findLatestPrediction():
     ftp.cwd('/pub/data/nccf/com/gfs/prod') 
     results = []
     retval = ftp.retrlines('NLST', results.append)
-    dirName = "gfs.%s%s"%(currentTime.strftime('%Y%m%d'), str(mostRecentCycle))
+    dirName = "gfs.%s%s"%(currentTime.strftime('%Y%m%d'), str(mostRecentCycle).zfill(2))
     mostRecent = datetime.utcnow()
     mostRecent = mostRecent.replace(minute=0, second=0, microsecond=0)
     if dirName in results:
@@ -195,7 +196,7 @@ def getAllLatestData():
             updateDataset(valueTime, 0.50)
             checkedHours.append(forecastHour)
         else:
-            logger.info("Skipping %d..."%i)
+            logger.debug("Skipping %d..."%i)
     #checkedHours = []
     #for i in range (1, 385):
     #    forecastHour = coerceForecastHour(i, 0.25)

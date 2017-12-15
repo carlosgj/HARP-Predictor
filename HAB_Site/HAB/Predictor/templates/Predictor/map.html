@@ -57,21 +57,24 @@ var sectional = L.tileLayer('https://d1pc149g092dlb.cloudfront.net/Maps/Tiles/Se
 });
 
 mymap.addLayer(streets);
-
+{% if pred.landingLatitude %}
 var landingMarker = L.circleMarker([{{pred.landingLatitude}}, {{pred.landingLongitude}}], {radius:5, color:"#ff0000", id:{{pred.id}}}).addTo(mymap);
 landingMarker.bindPopup("{{pred.landingLatitude}}, {{pred.landingLongitude}} {{pred.landingTime}} UTC");
 landingMarker.on('mouseover', function (e) {this.openPopup();});
 landingMarker.on('mouseout', function (e) {this.closePopup();});
+{% endif %}
 
 var launchMarker = L.circleMarker([{{pred.launchPoint.latitude}}, {{pred.launchPoint.longitude}}], {radius:5, color:"#0000ff", id:{{pred.id}}}).addTo(mymap);
 launchMarker.bindPopup("{{pred.launchPoint.latitude}}, {{pred.launchPoint.longitude}} {{pred.launchTime}} UTC");
 launchMarker.on('mouseover', function (e) {this.openPopup();});
 launchMarker.on('mouseout', function (e) {this.closePopup();});
 
+{% if pred.burstLatitude %}
 var burstMarker = L.circleMarker([{{pred.burstLatitude}}, {{pred.burstLongitude}}], {radius:5, color:"#00ff00", id:{{pred.id}}}).addTo(mymap);
 burstMarker.bindPopup("{{pred.burstLatitude}}, {{pred.burstLongitude}} {{pred.burstTime}} UTC");
 burstMarker.on('mouseover', function (e) {this.openPopup();});
 burstMarker.on('mouseout', function (e) {this.closePopup();});
+{% endif %}
 
 var points = [
 {% for point in points %}

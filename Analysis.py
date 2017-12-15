@@ -19,7 +19,7 @@ def getLatestTable():
     latestTable = "gfs"+str(latestNum)
     logger.info("Using table %s"%latestTable)
     return latestTable
-    
+
 def getHGTsforExact(latitude, longitude, resolution, time):
     resStr = "0.50"
     if resolution==0.25:
@@ -27,7 +27,7 @@ def getHGTsforExact(latitude, longitude, resolution, time):
     rows = c.execute("""SELECT Isobar, HGT from %s WHERE Latitude=%f AND Longitude=%f AND Resolution= '%s' AND ValueTime='%s'"""%(getLatestTable(), latitude, longitude, resStr, time.strftime('%Y-%m-%d %H:%M:%S')))
     results =  c.fetchall()
     return results
-    
+
 def buildMBTable(latitude, longitude, time):
     global MBTables
     if (latitude, longitude, time) in MBTables:
@@ -59,7 +59,7 @@ def buildMBTable(latitude, longitude, time):
         finalTable[val] = isobar
     MBTables[(latitude, longitude, time)] = finalTable
     return finalTable
-    
+
 def bracketElevation(latitude, longitude, time, elevation):
     table = buildMBTable(latitude, longitude, time)
     retDict = {
@@ -72,6 +72,8 @@ def bracketElevation(latitude, longitude, time, elevation):
     upperIsobar = None
     lowerElevation = 0
     upperElevation = 1000000
+    if not table:
+        return retDict
     sortedKeys = sorted(table.keys())
     if elevation < sortedKeys[0]:
         retDict['lowerElevation'] = retDict['upperElevation'] = sortedKeys[0]
@@ -86,13 +88,13 @@ def bracketElevation(latitude, longitude, time, elevation):
             retDict['upperIsobar'] = table[hgt]
             break
     return retDict
-    
+
 def getZPlaneAverage(latitude, longitude, time, elevation):
     points = bracketElevation(latitude, longitude, time, elevation)
     if (not points['lowerIsobar']) or (not points['upperIsobar']):
         print latitude, longitude, time, elevation, points
         print "YOU NEED TO IMPLEMENT ERROR HANDLING MOTHERFUCKER"
-        return
+        raise
         #TODO: error handling
     try:
         upperWeightingFactor = (float(elevation)-points['lowerElevation'])/(points['upperElevation']-points['lowerElevation'])
@@ -140,7 +142,7 @@ def getZPlaneAverage(latitude, longitude, time, elevation):
         finalData[key] = finalUpperData[key]*upperWeightingFactor+finalLowerData[key]*lowerWeightingFactor
     finalData['Pressure'] = meanPressure
     return finalData
-    
+
 def findLatLongPoints(latitude, longitude):
     firstLatPoint = round(2*latitude)/2.
     if firstLatPoint < latitude:
@@ -158,7 +160,7 @@ def findLatLongPoints(latitude, longitude):
     else:
         secondLongPoint = firstLongPoint
     return (firstLatPoint, secondLatPoint), (firstLongPoint, secondLongPoint)
-    
+
 def getWeatherDataAtPointAtPredictionTime(latitude, longitude, time, elevation):
     #First, find 4 nearest lat/lon points
     lats, longs = findLatLongPoints(latitude, longitude)
@@ -194,7 +196,6 @@ def getWeatherDataAtPointAtPredictionTime(latitude, longitude, time, elevation):
     for key in finalData:
         finalData[key] = (negXPointData[key]*negXWeightingFactor) + (posXPointData[key]*posXWeightingFactor)
     return finalData
-    
     
 def getWeatherDataInterpolated(latitude, longitude, time, elevation):
     #Bracket time
@@ -240,7 +241,6 @@ def getAltitudePoints(latitude, longitude):
     c.execute("""USE test_dataset""")
     results = [point(x[0], x[1], x[2]) for x in results]
     return results
-
 
 def getAltitudeAtPoint(latitude, longitude):
     approximatePoints = getAltitudePoints(latitude, longitude)

@@ -68,8 +68,8 @@ def runit(pred):
     try:
         flightPrediction.runPrediction(pred)
     except:
-        #logger.error("Could not run prediction for launchpoint %d at %s using prediction from %s. Last point:%s"%(pred.launchPointID, pred.launchPoint.time.strftime("%Y-%m-%d %H:%M:%S"), latestPredTime.strftime("%Y-%m-%d %H:%M:%S"), str(pred.path[-1])))
-        raise
+        logger.error("Could not run prediction for launchpoint %d at %s using prediction from %s. Last point:%s"%(pred.launchPointID, pred.launchPoint.time.strftime("%Y-%m-%d %H:%M:%S"), latestPredTime.strftime("%Y-%m-%d %H:%M:%S"), str(pred.path[-1])))
+        #raise
     else:
         #c.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, burstTime, burstLatitude, burstLongitude, landingTime, landingLatitude, landingLongitude, usingPrediction, ascentRate, descentRate, burstAltitude, landingAltitude) VALUES (%d, '%s', '%s', %f, %f, '%s', %f, %f, '%s', %f, %f, %d, %d)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate, pred.burstPoint.elevation, pred.landingPoint.elevation))
         c.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, usingPrediction, ascentRate, descentRate) VALUES (%d, '%s', '%s', %f, %f)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate))

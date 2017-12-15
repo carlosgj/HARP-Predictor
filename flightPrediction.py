@@ -69,6 +69,7 @@ def runPrediction(prediction):
             weather = Analysis.getWeatherDataInterpolated(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.currentPoint.time, prediction.currentPoint.elevation/feetPerMeter)
         except:
             print prediction.currentPoint
+            raise
         newpoint = geoTimePoint(time=prediction.currentPoint.time+timedelta(seconds=iterationIntervalSeconds))
         if prediction.phase == "ascent":
             newpoint.elevation = prediction.currentPoint.elevation + (iterationIntervalSeconds*prediction.ascentRate)
@@ -108,5 +109,5 @@ if __name__ == "__main__":
     logger.addHandler(ch)
     analysisLogger.addHandler(ch)
     launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime.utcnow())
-    pred = Prediction(launchPoint, 7.2, 16, burstAltitude=50000)
+    pred = Prediction(launchPoint, 7.2, 16, burstAltitude=60000)
     runPrediction(pred)

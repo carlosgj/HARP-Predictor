@@ -52,7 +52,7 @@ def Map(request, pred_id):
     return render(request, "Predictor/map.html", {"pred":pred, 'points':points})
 
 def MultiMap(request):
-    preds = Prediction.objects.exclude(landingLatitude__isnull=True)
+    preds = Prediction.objects.exclude(burstLatitude__isnull=True)
     launchpoints = launchLocation.objects.all()
     elevationSquares = []
     for i in range(33, 36):

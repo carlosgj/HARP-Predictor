@@ -69,23 +69,29 @@ var sectional = L.tileLayer('https://d1pc149g092dlb.cloudfront.net/Maps/Tiles/Se
 var landingMarkers = L.layerGroup();
 var landingPoints = [];
 {% for pred in preds %}
+{% if pred.landingLatitude %}
 var marker = L.circleMarker([{{pred.landingLatitude}}, {{pred.landingLongitude}}], {radius:5, color:"#ff0000", id:{{pred.id}}, launchpoint:{{pred.launchPoint.id}}, });
 marker.bindPopup("ID: {{pred.id}}<br/>Launch: {{pred.launchTime}} UTC from {{pred.launchPoint.name}}<br/>Landing: {{pred.landingTime}} UTC");
 marker.on('mouseover', function (e) {this.openPopup();});
 marker.on('mouseout', function (e) {this.closePopup();});
 marker.on('click', function(e) {window.location.href="map/{{pred.id}}";});
 landingPoints.push(marker);
+{% endif %}
 {% endfor %}
 
 var burstMarkers = L.layerGroup();
 var burstPoints = [];
 {% for pred in preds %}
+console.log({{pred.burstLatitude}})
+{% if pred.burstLatitude %}
+console.log("!!!")
 var marker = L.circleMarker([{{pred.burstLatitude}}, {{pred.burstLongitude}}], {radius:5, color:"#00ff00", id:{{pred.id}}, launchpoint:{{pred.launchPoint.id}}, });
 marker.bindPopup("ID: {{pred.id}}<br/>Burst: {{pred.burstTime}} UTC");
 marker.on('mouseover', function (e) {this.openPopup();});
 marker.on('mouseout', function (e) {this.closePopup();});
 marker.on('click', function(e) {window.location.href="map/{{pred.id}}";});
 burstPoints.push(marker);
+{% endif %}
 {% endfor %}
 
 var elevationDataBoundaries = L.layerGroup();

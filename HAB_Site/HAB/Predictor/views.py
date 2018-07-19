@@ -64,7 +64,7 @@ def MultiMap(request):
     return render(request, "Predictor/multiMap.html", {"preds":preds,'launchpoints':launchpoints,'elevData':elevationSquares,})
 
 def PredictionList(request):
-    data = list(Prediction.objects.all())
+    data = list(Prediction.objects.all().order_by('launchTime'))
     for pred in data:
         auxDict = {}
         if pred.burstTime:
@@ -84,22 +84,21 @@ def LaunchPointList(request):
     return render(request, 'Predictor/listLaunchPoints.html', context)
 
 def WeatherDataList(request):
-    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='localhost')
+    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='weatherdata.kf5nte.org')
     wdcrs = wdb.cursor()
-    wdcrs.execute("""SELECT tableName, predictionTime FROM setIndex""")
+    wdcrs.execute("""SELECT DISTINCT(PredictionTime) FROM WeatherData""")
     rawResults = wdcrs.fetchall()
     wdb.close()
     data = []
     for i in rawResults:
         this = {}
-        this["tableName"] = i[0]
-        this["predictionTime"] = i[1]
+        this["predictionTime"] = i[0]
         data.append(this)
     context = {'weather_list':data,}
     return render(request, 'Predictor/weatherList.html', context)
 
 def WeatherDataJson(request, table_name):
-    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='localhost')
+    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='weatherdata.kf5nte.org')
     wdcrs = wdb.cursor()
     print "Getting data..."
     try:

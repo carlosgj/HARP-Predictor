@@ -80,17 +80,9 @@ DATABASES = {
         'NAME': 'Django',
 	'USER': 'readonly',
 	'PASSWORD': '',
-	'HOST': 'localhost',
+	'HOST': 'weatherdata.kf5nte.org',
 	'PORT': '3306',
     },
-    'data': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'test_dataset',
-        'USER': 'readonly',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': '3306',
-    }
 }
 
 

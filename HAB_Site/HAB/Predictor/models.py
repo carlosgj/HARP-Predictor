@@ -10,6 +10,7 @@ class launchLocation(models.Model):
     latitude = models.FloatField("Latitude")
     longitude = models.FloatField("Longitude")
     altitude = models.IntegerField("Altitude")
+    isActive = models.BooleanField()
     def __str__(self):
         return "%s (%s)"%(self.name, self.description)
 

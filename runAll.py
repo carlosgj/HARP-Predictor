@@ -1,11 +1,18 @@
 import flightPrediction
-import MySQLdb
+#import MySQLdb
+import pymysql as MySQLdb
+MySQLdb.install_as_MySQLdb()
 import logging
 import datetime
 from multiprocessing.dummy import Pool as ThreadPool
 from multiprocessing import cpu_count as cpu_count
-pool = ThreadPool(1)
+#pool = ThreadPool(1)
+print cpu_count(), " CPUs"
 logger = logging.getLogger(__name__)
+import Analysis
+import traceback
+import multiprocessing
+import time
 
 logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
@@ -14,15 +21,15 @@ formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
-
-db=MySQLdb.connect(host='localhost', user='guest', passwd='',db="Django")
+db=MySQLdb.connect(host='weatherdata.kf5nte.org', user='guest', passwd='',db="Django")
 c = db.cursor()
+print db, c
 
 #c.execute("""SELECT launchTime, launchLatitude, launchLongitude, launchAltitude, ascentRate, descentRate, burstAltitude, id FROM Predictor_prediction""")
 #preds = c.fetchall()
 
-c.execute("""DELETE FROM Predictor_predictionpoint""")
-c.execute("""DELETE FROM Predictor_prediction""")
+#c.execute("""DELETE FROM Predictor_predictionpoint""")
+#c.execute("""DELETE FROM Predictor_prediction""")
 
 intervalHours = 4
 ascentRate = 7
@@ -33,23 +40,23 @@ interval = datetime.timedelta(hours=intervalHours)
 
 #Get time of lastest weather data
 c.execute("""USE test_dataset""")
-c.execute("""SELECT * FROM setIndex ORDER BY predictionTime DESC LIMIT 1""")
+c.execute("""SELECT PredictionTime FROM WeatherData ORDER BY PredictionTime DESC LIMIT 1""")
 latestPred = c.fetchall()[0]
-latestPredTable = latestPred[0]
-latestPredTime = latestPred[1]
+latestPredTime = latestPred[0]
 
 #Get all launch locations
 c.execute("""USE Django""")
-c.execute("""SELECT id, latitude, longitude, altitude FROM Predictor_launchlocation""")
+c.execute("""SELECT id, latitude, longitude, altitude, isActive FROM Predictor_launchlocation""")
 _launchpoints = c.fetchall()
 launchpoints = []
 for i in _launchpoints:
-    this  = {}
-    this['id'] = i[0]
-    this['latitude'] = i[1]
-    this['longitude'] = i[2]
-    this['altitude'] = i[3]
-    launchpoints.append(this)
+    if i[4]:
+        this  = {}
+        this['id'] = i[0]
+        this['latitude'] = i[1]
+        this['longitude'] = i[2]
+        this['altitude'] = i[3]
+        launchpoints.append(this)
 
 allPredictions = []
 currentStep = 0
@@ -63,27 +70,49 @@ while currentStep*intervalHours < 384:
         allPredictions.append(thisPred)
     currentStep += 1
 
-def runit(pred):
-    print "Running prediction for ", pred.launchPoint.time
+c.close()
+
+
+def runit(pred, engine, tempid):
+    pred.engine = engine
+    thisdb=MySQLdb.connect(host='weatherdata.kf5nte.org', user='guest', passwd='',db="Django")
+    thisc = thisdb.cursor()
+    thisc.close()
+    thisc = thisdb.cursor()
+    print tempid, "- Running prediction for ", pred.launchPoint.time
+    print "Using conn ", db, " cursor ", thisc
     try:
         flightPrediction.runPrediction(pred)
+    except AssertionError:
+        pass
     except:
-        logger.error("Could not run prediction for launchpoint %d at %s using prediction from %s. Last point:%s"%(pred.launchPointID, pred.launchPoint.time.strftime("%Y-%m-%d %H:%M:%S"), latestPredTime.strftime("%Y-%m-%d %H:%M:%S"), str(pred.path[-1])))
+        logger.error("%d- Could not run prediction for launchpoint %d at %s using prediction from %s. Last point:%s"%(tempid, pred.launchPointID, pred.launchPoint.time.strftime("%Y-%m-%d %H:%M:%S"), latestPredTime.strftime("%Y-%m-%d %H:%M:%S"), str(pred.path[-1])))
         #raise
-    else:
+    #else:
+    if True:
         #c.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, burstTime, burstLatitude, burstLongitude, landingTime, landingLatitude, landingLongitude, usingPrediction, ascentRate, descentRate, burstAltitude, landingAltitude) VALUES (%d, '%s', '%s', %f, %f, '%s', %f, %f, '%s', %f, %f, %d, %d)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate, pred.burstPoint.elevation, pred.landingPoint.elevation))
-        c.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, usingPrediction, ascentRate, descentRate) VALUES (%d, '%s', '%s', %f, %f)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate))
-        thisPredictionID = c.lastrowid
+        thisc.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, usingPrediction, ascentRate, descentRate) VALUES (%d, '%s', '%s', %f, %f)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate))
+        thisPredictionID = thisc.lastrowid
+        db.commit()
         if pred.burstPoint:
-            c.execute("""UPDATE Predictor_prediction SET burstTime='%s', burstLatitude=%f, burstLongitude=%f, burstAltitude=%d WHERE id=%d"""%(pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.burstPoint.elevation, thisPredictionID))
+            thisc.execute("""UPDATE Predictor_prediction SET burstTime='%s', burstLatitude=%f, burstLongitude=%f, burstAltitude=%d WHERE id=%d"""%(pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.burstPoint.elevation, thisPredictionID))
         if pred.landingPoint:
-            c.execute("""UPDATE Predictor_prediction SET landingTime='%s', landingLatitude=%f, landingLongitude=%f, landingAltitude=%d WHERE id=%d"""%(pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, pred.landingPoint.elevation, thisPredictionID))
+            thisc.execute("""UPDATE Predictor_prediction SET landingTime='%s', landingLatitude=%f, landingLongitude=%f, landingAltitude=%d WHERE id=%d"""%(pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, pred.landingPoint.elevation, thisPredictionID))
         if not pred.path:
             assert False
+        db.commit()
         for point in pred.path:
             #print point
-            c.execute("""INSERT INTO Predictor_predictionpoint (latitude, longitude, altitude, groundElevation, time, prediction_id) VALUES (%f, %f, %f, %f, '%s', %d)"""%(point.latitude, point.longitude, point.elevation, point.groundAlt, point.time.strftime('%Y-%m-%d %H:%M:%S'), thisPredictionID))
-
+            try:
+                thisc.execute("""INSERT INTO Predictor_predictionpoint (latitude, longitude, altitude, groundElevation, time, prediction_id) VALUES (%f, %f, %f, %f, '%s', %d)"""%(point.latitude, point.longitude, point.elevation, point.groundAlt, point.time.strftime('%Y-%m-%d %H:%M:%S'), thisPredictionID))
+            except:
+                print "can't find ", thisPredictionID
+                raise
+    #print "Committing ", thisdb
+    thisdb.commit()
+    #db.commit()
+    thisc.close()
+    thisdb.close()
 
 logger.setLevel(logging.DEBUG)
 analysisLogger = logging.getLogger("Analysis")
@@ -98,9 +127,24 @@ analysisLogger.addHandler(ch)
 #for pred in allPredictions:
 #    print pred.launchPoint.time
 #assert False
-for pred in allPredictions:
-    runit(pred)
+
+if __name__ == "__main__":
+    #e1 = Analysis.AnalysisEngine()
+
+    #pool.map(go, allPredictions)
+    loopcount = 0
+    for i, pred in enumerate(allPredictions):
+        eng = Analysis.AnalysisEngine()
+        p = multiprocessing.Process(target=runit, args=(pred,eng,i))
+        #runit(pred,eng)
+        p.start()
+        #p.join()
+        loopcount += 1
+        #if loopcount == 30:
+         #   break
+        #time.sleep(1)
+    #db.commit()
+    print "Committing ",db
     db.commit()
-    #assert False
-db.commit()
+
 

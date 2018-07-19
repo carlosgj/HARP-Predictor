@@ -30,12 +30,13 @@ class Prediction():
     burstAltitude=None
     ascentRate=None #in f/s
     descentRate=None #in f/s
-    def __init__(self, launchPoint, ascentRate, descentRate, burstPressure=None, burstAltitude=None):
+    def __init__(self, launchPoint, ascentRate, descentRate, burstPressure=None, burstAltitude=None, engine=None):
         self.launchPoint = launchPoint
         self.burstPressure = burstPressure
         self.burstAltitude = burstAltitude
         self.ascentRate = ascentRate
         self.descentRate = descentRate
+        self.engine = engine
     #These are calculated
     burstPoint=None #GeoPoint object
     landingPoint=None #GeoPoint object
@@ -47,26 +48,27 @@ def runPrediction(prediction):
     ascendingFlag = True
     prediction.currentPoint = prediction.launchPoint
     print "Launch point:", prediction.launchPoint
+    exactElevationFlag = 0
+    staleGroundAlt = None
     while(True):
-        pts = Analysis.getAltitudePoints(prediction.currentPoint.latitude, prediction.currentPoint.longitude)
-        try:
-            roughelevation = max([x.elevation for x in pts])
-        except ValueError:
-            logger.error("Balloon reached edge of altitude data at %f, %f, %f ft."%(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.path[-1].groundAlt))
-            break
-        if (len(prediction.path) == 0 or prediction.currentPoint.elevation > (roughelevation + 1000)) and not ascendingFlag:
-            groundAlt = roughelevation
+        if exactElevationFlag == 0:
+            groundAlt = prediction.engine.getAltitudeAtPoint(prediction.currentPoint.latitude, prediction.currentPoint.longitude)
+            staleGroundAlt = groundAlt
+            if (prediction.currentPoint.elevation-groundAlt) > 5000:
+                exactElevationFlag = 5
         else:
-            groundAlt = Analysis.getAltitudeAtPoint(prediction.currentPoint.latitude, prediction.currentPoint.longitude)
+            exactElevationFlag -= 1
+            groundAlt = staleGroundAlt
+        #print exactElevationFlag, groundAlt, prediction.currentPoint.elevation
         #print prediction.currentPoint.latitude, prediction.currentPoint.longitude, groundAlt, roughelevation
-        if ascendingFlag and prediction.currentPoint.elevation > roughelevation:
+        if ascendingFlag and prediction.currentPoint.elevation > groundAlt:
             ascendingFlag = False
         prediction.currentPoint.groundAlt = groundAlt
         #Copy point into path
         prediction.path.append(copy.deepcopy(prediction.currentPoint))
         #Get weather at point
         try:
-            weather = Analysis.getWeatherDataInterpolated(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.currentPoint.time, prediction.currentPoint.elevation/feetPerMeter)
+            weather = prediction.engine.getWeatherDataInterpolated(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.currentPoint.time, prediction.currentPoint.elevation/feetPerMeter)
         except:
             print prediction.currentPoint
             raise
@@ -109,5 +111,6 @@ if __name__ == "__main__":
     logger.addHandler(ch)
     analysisLogger.addHandler(ch)
     launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime.utcnow())
-    pred = Prediction(launchPoint, 7.2, 16, burstAltitude=60000)
+    thisEng = Analysis.AnalysisEngine()
+    pred = Prediction(launchPoint, 7.2, 16, burstAltitude=60000, engine=thisEng)
     runPrediction(pred)

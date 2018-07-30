@@ -2,10 +2,10 @@
 {% block title %}Predictions{% endblock %}
 {% block content %}
 <table class="predictionTable">
-<tr><th>Table Name</th><th>Prediction Time (UTC)</th></tr>
+<tr><th>Prediction Time (UTC)</th></tr>
 {% for table in weather_list %}
 <tr>
-<td><a href="showWeatherData/{{table.tableName}}">{{table.tableName}}</a></td><td>{{table.predictionTime}}</td>
+<td><a href="showWeatherData/{{table.tableName}}">{{table.predictionTime}}</a></td>
 </tr>
 {% endfor %}
 <table>

@@ -78,11 +78,22 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'Django',
-	'USER': 'readonly',
-	'PASSWORD': '',
-	'HOST': 'weatherdata.kf5nte.org',
-	'PORT': '3306',
+	    'USER': 'readonly',
+	    'PASSWORD': '',
+	    'HOST': 'weatherdata.kf5nte.org',
+	    'PORT': '3306',
     },
+
+    'elevationdata': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'elevationdata',
+        'USER': 'readonly',
+        'PASSWORD': '',
+        'HOST': 'elevationdata.kf5nte.org',
+        'PORT': '3306',
+    },
+
+
 }
 
 

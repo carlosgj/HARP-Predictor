@@ -21,9 +21,26 @@ formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
-db=MySQLdb.connect(host='weatherdata.kf5nte.org', user='guest', passwd='',db="Django")
-c = db.cursor()
-print db, c
+wdb=MySQLdb.connect(host='weatherdata.kf5nte.org', user='guest', passwd='',db="Django")
+edb = MySQLdb.connect(host='elevationdata.kf5nte.org', user='readonly', passwd='',db="elevationdata")
+wc = wdb.cursor()
+ec = edb.cursor()
+
+#Get terrain data limits
+gridsquares = []
+for lat in range(31, 38):
+    for lon in range(-121, -114):
+        centerlat = lat+0.5
+        centerlon = lon+0.5
+        ec.execute("""SELECT * FROM Predictor_elevationpoint WHERE latitude=%f AND longitude=%f LIMIT 1"""%(centerlat, centerlon))
+        if len(ec.fetchall()) > 0:
+            #We have data for this square
+            gridsquares.append((centerlat, centerlon))
+print gridsquares
+#assert False
+flightPrediction.availableAltitudeSquares = gridsquares
+
+
 
 #c.execute("""SELECT launchTime, launchLatitude, launchLongitude, launchAltitude, ascentRate, descentRate, burstAltitude, id FROM Predictor_prediction""")
 #preds = c.fetchall()
@@ -39,15 +56,15 @@ burstAltitude=60000
 interval = datetime.timedelta(hours=intervalHours)
 
 #Get time of lastest weather data
-c.execute("""USE test_dataset""")
-c.execute("""SELECT PredictionTime FROM WeatherData ORDER BY PredictionTime DESC LIMIT 1""")
-latestPred = c.fetchall()[0]
+wc.execute("""USE test_dataset""")
+wc.execute("""SELECT PredictionTime FROM WeatherData ORDER BY PredictionTime DESC LIMIT 1""")
+latestPred = wc.fetchall()[0]
 latestPredTime = latestPred[0]
 
 #Get all launch locations
-c.execute("""USE Django""")
-c.execute("""SELECT id, latitude, longitude, altitude, isActive FROM Predictor_launchlocation""")
-_launchpoints = c.fetchall()
+wc.execute("""USE Django""")
+wc.execute("""SELECT id, latitude, longitude, altitude, isActive FROM Predictor_launchlocation""")
+_launchpoints = wc.fetchall()
 launchpoints = []
 for i in _launchpoints:
     if i[4]:
@@ -70,7 +87,7 @@ while currentStep*intervalHours < 384:
         allPredictions.append(thisPred)
     currentStep += 1
 
-c.close()
+wc.close()
 
 
 def runit(pred, engine, tempid):
@@ -80,27 +97,27 @@ def runit(pred, engine, tempid):
     thisc.close()
     thisc = thisdb.cursor()
     print tempid, "- Running prediction for ", pred.launchPoint.time
-    print "Using conn ", db, " cursor ", thisc
+    print "Using conn ", wdb, " cursor ", thisc
     try:
         flightPrediction.runPrediction(pred)
-    except AssertionError:
-        pass
+    #except AssertionError:
+        #pass
     except:
-        logger.error("%d- Could not run prediction for launchpoint %d at %s using prediction from %s. Last point:%s"%(tempid, pred.launchPointID, pred.launchPoint.time.strftime("%Y-%m-%d %H:%M:%S"), latestPredTime.strftime("%Y-%m-%d %H:%M:%S"), str(pred.path[-1])))
-        #raise
+        #logger.error("%d- Could not run prediction for launchpoint %d at %s using prediction from %s. Last point:%s"%(tempid, pred.launchPointID, pred.launchPoint.time.strftime("%Y-%m-%d %H:%M:%S"), latestPredTime.strftime("%Y-%m-%d %H:%M:%S"), str(pred.path[-1])))
+        raise
     #else:
     if True:
         #c.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, burstTime, burstLatitude, burstLongitude, landingTime, landingLatitude, landingLongitude, usingPrediction, ascentRate, descentRate, burstAltitude, landingAltitude) VALUES (%d, '%s', '%s', %f, %f, '%s', %f, %f, '%s', %f, %f, %d, %d)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate, pred.burstPoint.elevation, pred.landingPoint.elevation))
         thisc.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, usingPrediction, ascentRate, descentRate) VALUES (%d, '%s', '%s', %f, %f)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate))
         thisPredictionID = thisc.lastrowid
-        db.commit()
+        #db.commit()
         if pred.burstPoint:
             thisc.execute("""UPDATE Predictor_prediction SET burstTime='%s', burstLatitude=%f, burstLongitude=%f, burstAltitude=%d WHERE id=%d"""%(pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.burstPoint.elevation, thisPredictionID))
         if pred.landingPoint:
             thisc.execute("""UPDATE Predictor_prediction SET landingTime='%s', landingLatitude=%f, landingLongitude=%f, landingAltitude=%d WHERE id=%d"""%(pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, pred.landingPoint.elevation, thisPredictionID))
         if not pred.path:
             assert False
-        db.commit()
+        #db.commit()
         for point in pred.path:
             #print point
             try:
@@ -110,7 +127,6 @@ def runit(pred, engine, tempid):
                 raise
     #print "Committing ", thisdb
     thisdb.commit()
-    #db.commit()
     thisc.close()
     thisdb.close()
 
@@ -136,15 +152,14 @@ if __name__ == "__main__":
     for i, pred in enumerate(allPredictions):
         eng = Analysis.AnalysisEngine()
         p = multiprocessing.Process(target=runit, args=(pred,eng,i))
-        #runit(pred,eng)
+        #runit(pred,eng, i)
         p.start()
         #p.join()
         loopcount += 1
         #if loopcount == 30:
-         #   break
-        #time.sleep(1)
-    #db.commit()
-    print "Committing ",db
-    db.commit()
+        #break
+        time.sleep(10)
+    print "Committing ",wdb
+    wdb.commit()
 
 

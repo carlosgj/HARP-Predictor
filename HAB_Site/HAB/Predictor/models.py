@@ -53,6 +53,13 @@ class elevationPoint(models.Model):
     def __str__(self):
         return "%f, %f: %f"%(self.latitude, self.longitude, self.elevation)
 
+class monteCarloResult(models.Model):
+    prediction = models.ForeignKey(Prediction, on_delete=models.CASCADE)
+    landingLatitude = models.FloatField()
+    landingLongitude = models.FloatField()
+    landingAltitude = models.IntegerField()
+    landingTime = models.DateTimeField()
+
 def linterp(x, x1, x2, y1, y2):
     return ((x2 - x) / (x2 - x1)) * y1 + ((x - x1) / (x2 - x1)) * y2
 

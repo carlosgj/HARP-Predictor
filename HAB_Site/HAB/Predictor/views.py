@@ -57,7 +57,7 @@ def MultiMap(request):
     elevationSquares = []
     for i in range(33, 36):
         for j in range (-120, -116):
-            result = elevationPoint.objects.filter(latitude=i+0.5)
+            result = elevationPoint.objects.using('elevationdata').filter(latitude=i+0.5)
             result = result.filter(longitude=j+0.5)
             if result:
                 elevationSquares.append({'lat':i+0.5, 'lon':j+0.5})
@@ -86,7 +86,7 @@ def LaunchPointList(request):
 def WeatherDataList(request):
     wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='weatherdata.kf5nte.org')
     wdcrs = wdb.cursor()
-    wdcrs.execute("""SELECT DISTINCT(PredictionTime) FROM WeatherData""")
+    wdcrs.execute("""SELECT PredictionTime FROM WeatherData GROUP BY PredictionTime""")
     rawResults = wdcrs.fetchall()
     wdb.close()
     data = []
@@ -133,3 +133,4 @@ def WeatherDataJson(request, table_name):
 def ShowWeatherData(request, table_name):
     context = {'table':table_name}
     return render(request, 'Predictor/weatherDataAnalysis.html', context)
+

@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 class AnalysisEngine():
 
     def __init__(self):
-        self.db=MySQLdb.connect(host='weatherdata.kf5nte.org', user='readonly', passwd='',db="test_dataset")
-        self.c = self.db.cursor()
+        self.wdb=MySQLdb.connect(host='weatherdata.kf5nte.org', user='readonly', passwd='',db="test_dataset")
+        self.edb=MySQLdb.connect(host='elevationdata.kf5nte.org', user='readonly', passwd='',db="elevationdata")
+        self.wc = self.wdb.cursor()
+        self.ec = self.edb.cursor()
         self.latestPrediction = None
         self.MBTables = {}
         #print self.db
@@ -20,8 +22,8 @@ class AnalysisEngine():
     def getLatestPrediction(self):
         if self.latestPrediction is not None:
             return self.latestPrediction
-        self.c.execute("SELECT PredictionTime FROM WeatherData ORDER BY PredictionTime DESC LIMIT 1")
-        raw = self.c.fetchall()
+        self.wc.execute("SELECT PredictionTime FROM WeatherData ORDER BY PredictionTime DESC LIMIT 1")
+        raw = self.wc.fetchall()
         predictionTime = raw[0][0]
         self.latestPrediction = predictionTime.strftime("%Y-%m-%d %H:%M:%S")
         logger.info("Using prediction %s"%self.latestPrediction)
@@ -31,8 +33,8 @@ class AnalysisEngine():
         resStr = "0.50"
         if resolution==0.25:
             resStr = '0.25'
-        self.c.execute("""SELECT Isobar, HGT from WeatherData WHERE PredictionTime = "%s" AND Latitude=%f AND Longitude=%f AND Resolution= '%s' AND ValueTime='%s'"""%(self.getLatestPrediction(), latitude, longitude, resStr, time.strftime('%Y-%m-%d %H:%M:%S')))
-        results =  self.c.fetchall()
+        self.wc.execute("""SELECT Isobar, HGT from WeatherData WHERE PredictionTime = "%s" AND Latitude=%f AND Longitude=%f AND Resolution= '%s' AND ValueTime='%s'"""%(self.getLatestPrediction(), latitude, longitude, resStr, time.strftime('%Y-%m-%d %H:%M:%S')))
+        results =  self.wc.fetchall()
         return results
 
     def buildMBTable(self, latitude, longitude, time):
@@ -111,27 +113,27 @@ class AnalysisEngine():
 
         #Get weather data at lower point
         try:
-            self.c.execute("""SELECT Resolution, TMP, UGRD, VGRD FROM WeatherData WHERE PredictionTime="%s" AND ValueTime=%s AND Latitude=%f AND Longitude=%f AND Isobar=%s"""%(self.getLatestPrediction(), time.strftime("'%Y-%m-%d %H:%M:%S'"), latitude, longitude, points['lowerIsobar']))
+            self.wc.execute("""SELECT Resolution, TMP, UGRD, VGRD FROM WeatherData WHERE PredictionTime="%s" AND ValueTime=%s AND Latitude=%f AND Longitude=%f AND Isobar=%s"""%(self.getLatestPrediction(), time.strftime("'%Y-%m-%d %H:%M:%S'"), latitude, longitude, points['lowerIsobar']))
         except:
             print "Regenerating cursor..."
-            self.c.close()
-            self.c = self.db.cursor()
-            self.c.execute("""SELECT Resolution, TMP, UGRD, VGRD FROM WeatherData WHERE PredictionTime="%s" AND ValueTime=%s AND Latitude=%f AND Longitude=%f AND Isobar=%s"""%(self.getLatestPrediction(), time.strftime("'%Y-%m-%d %H:%M:%S'"), latitude, longitude, points['lowerIsobar']))
-        raw = self.c.fetchall()
+            self.wc.close()
+            self.wc = self.db.cursor()
+            self.wc.execute("""SELECT Resolution, TMP, UGRD, VGRD FROM WeatherData WHERE PredictionTime="%s" AND ValueTime=%s AND Latitude=%f AND Longitude=%f AND Isobar=%s"""%(self.getLatestPrediction(), time.strftime("'%Y-%m-%d %H:%M:%S'"), latitude, longitude, points['lowerIsobar']))
+        raw = self.wc.fetchall()
         lowerData = []
         for row in raw:
             lowerData.append({'Res':row[0], 'TMP':row[1], 'UGRD':row[2], 'VGRD':row[3]})
 
         #Get weather data at upper point
         try:
-            self.c.execute("""SELECT Resolution, TMP, UGRD, VGRD FROM WeatherData WHERE PredictionTime="%s" AND ValueTime=%s AND Latitude=%f AND Longitude=%f AND Isobar=%s"""%(self.getLatestPrediction(), time.strftime("'%Y-%m-%d %H:%M:%S'"), latitude, longitude, points['upperIsobar']))
+            self.wc.execute("""SELECT Resolution, TMP, UGRD, VGRD FROM WeatherData WHERE PredictionTime="%s" AND ValueTime=%s AND Latitude=%f AND Longitude=%f AND Isobar=%s"""%(self.getLatestPrediction(), time.strftime("'%Y-%m-%d %H:%M:%S'"), latitude, longitude, points['upperIsobar']))
         except:
             print "Regenerating cursor..."
-            self.c.close()
-            self.c = self.db.cursor()
-            self.c.execute("""SELECT Resolution, TMP, UGRD, VGRD FROM WeatherData WHERE PredictionTime="%s" AND ValueTime=%s AND Latitude=%f AND Longitude=%f AND Isobar=%s"""%(self.getLatestPrediction(), time.strftime("'%Y-%m-%d %H:%M:%S'"), latitude, longitude, points['upperIsobar']))
+            self.wc.close()
+            self.wc = self.db.cursor()
+            self.wc.execute("""SELECT Resolution, TMP, UGRD, VGRD FROM WeatherData WHERE PredictionTime="%s" AND ValueTime=%s AND Latitude=%f AND Longitude=%f AND Isobar=%s"""%(self.getLatestPrediction(), time.strftime("'%Y-%m-%d %H:%M:%S'"), latitude, longitude, points['upperIsobar']))
 
-        raw = self.c.fetchall()
+        raw = self.wc.fetchall()
         upperData = []
         for row in raw:
             upperData.append({'Res':row[0], 'TMP':row[1], 'UGRD':row[2], 'VGRD':row[3]})
@@ -219,8 +221,8 @@ class AnalysisEngine():
     def getWeatherDataInterpolated(self, latitude, longitude, time, elevation):
         #Bracket time
         pred=self.getLatestPrediction()
-        self.c.execute("""SELECT DISTINCT(ValueTime) FROM WeatherData WHERE PredictionTime=\"%s\""""%pred)
-        availableTimes = self.c.fetchall()
+        self.wc.execute("""SELECT DISTINCT(ValueTime) FROM WeatherData WHERE PredictionTime=\"%s\""""%pred)
+        availableTimes = self.wc.fetchall()
         availableTimes = [x[0] for x in availableTimes]
         beforeTime = min(availableTimes)
         afterTime = max(availableTimes)
@@ -253,10 +255,10 @@ class AnalysisEngine():
                 self.longitude = lon
                 self.elevation = ele
 
-        self.c.execute("""USE Django""")
-        self.c.execute("""SELECT latitude, longitude, elevation FROM Predictor_elevationpoint WHERE latitude BETWEEN %f AND %f AND longitude BETWEEN %f AND %f"""%(latitude-0.0001, latitude+0.0001, longitude-0.0001, longitude+0.0001))
-        results = self.c.fetchall()
-        self.c.execute("""USE test_dataset""")
+        #self.c.execute("""USE Django""")
+        self.ec.execute("""SELECT latitude, longitude, elevation FROM Predictor_elevationpoint WHERE latitude BETWEEN %f AND %f AND longitude BETWEEN %f AND %f"""%(latitude-0.0001, latitude+0.0001, longitude-0.0001, longitude+0.0001))
+        results = self.ec.fetchall()
+        #self.c.execute("""USE test_dataset""")
         if not results:
             logger.critical("Could not find altitude data for latitude %f, longitude %f. Balloon may be out of database limits."%(latitude, longitude))
         results = [point(x[0], x[1], x[2]) for x in results]

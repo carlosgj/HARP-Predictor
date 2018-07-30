@@ -3,12 +3,15 @@ import Analysis
 import copy 
 import math
 import logging
+from termcolor import colored
 logger = logging.getLogger(__name__)
 iterationIntervalSeconds = 30
 
 feetPerMeter = 3.28084
 feetPerDegreeLatitude = 364000
 feetPerDegreeLongitudeEquator = 365220
+
+availableAltitudeSquares = []
 
 class geoTimePoint():
     latitude=None
@@ -30,6 +33,8 @@ class Prediction():
     burstAltitude=None
     ascentRate=None #in f/s
     descentRate=None #in f/s
+    ugrdMultiplier = 1.
+    vgrdMultiplier = 1.
     def __init__(self, launchPoint, ascentRate, descentRate, burstPressure=None, burstAltitude=None, engine=None):
         self.launchPoint = launchPoint
         self.burstPressure = burstPressure
@@ -77,12 +82,19 @@ def runPrediction(prediction):
             newpoint.elevation = prediction.currentPoint.elevation + (iterationIntervalSeconds*prediction.ascentRate)
         elif prediction.phase == "descent":
             newpoint.elevation = prediction.currentPoint.elevation - (iterationIntervalSeconds*prediction.descentRate)
-        deltaXFeet = weather['UGRD']*feetPerMeter*iterationIntervalSeconds
-        deltaYFeet = weather['VGRD']*feetPerMeter*iterationIntervalSeconds
+        deltaXFeet = weather['UGRD']*feetPerMeter*iterationIntervalSeconds*prediction.ugrdMultiplier
+        deltaYFeet = weather['VGRD']*feetPerMeter*iterationIntervalSeconds*prediction.vgrdMultiplier
         feetPerDegreeLongitude = feetPerDegreeLongitudeEquator*math.cos(math.radians(prediction.currentPoint.latitude))
         newpoint.latitude = prediction.currentPoint.latitude + (deltaYFeet/feetPerDegreeLatitude)
         newpoint.longitude = prediction.currentPoint.longitude + (deltaXFeet/feetPerDegreeLongitude)
         prediction.currentPoint = newpoint
+        
+        #Check if newpoint is in a grid square we have terrain data for
+        gridSquareTuple = (int(newpoint.latitude)+0.5, int(newpoint.longitude)-0.5)
+        if len(availableAltitudeSquares) > 0 and gridSquareTuple not in availableAltitudeSquares:
+            print colored("Balloon exited terrain data area at %f, %f."%(newpoint.latitude, newpoint.longitude), 'red')
+            break
+
         if prediction.phase == 'ascent':
             if (prediction.burstPressure is not None) and weather["Pressure"] < prediction.burstPressure:
                 prediction.phase = "descent"
@@ -90,10 +102,10 @@ def runPrediction(prediction):
             elif (prediction.burstAltitude is not None) and prediction.currentPoint.elevation > prediction.burstAltitude:
                 prediction.phase = "descent"
                 prediction.burstPoint = newpoint
-                print "Balloon burst at ",newpoint.latitude, newpoint.longitude
+                print colored("Balloon burst at %f, %f"%(newpoint.latitude, newpoint.longitude), 'green')
         if prediction.phase=='descent':
             if newpoint.elevation < groundAlt:
-                print "Balloon landed. Terminating."
+                print colored("Balloon landed. Terminating.", 'green')
                 prediction.landingPoint = newpoint
                 break
         #print newpoint

@@ -149,16 +149,19 @@ if __name__ == "__main__":
 
     #pool.map(go, allPredictions)
     loopcount = 0
+    lastPred = None
     for i, pred in enumerate(allPredictions):
         eng = Analysis.AnalysisEngine()
         p = multiprocessing.Process(target=runit, args=(pred,eng,i))
         #runit(pred,eng, i)
         p.start()
+        lastPred = p
         #p.join()
         loopcount += 1
         #if loopcount == 30:
         #break
-        time.sleep(10)
+        time.sleep(6)
+    lastPred.join()
     print "Committing ",wdb
     wdb.commit()
 

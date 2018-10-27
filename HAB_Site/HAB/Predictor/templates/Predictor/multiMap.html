@@ -99,7 +99,12 @@ var elevationDataBoundaries = L.layerGroup();
 L.polygon([[{{square.lat}}+0.5, {{square.lon}}-0.5],[{{square.lat}}+0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}-0.5]], {color:"blue"}).addTo(elevationDataBoundaries);
 {% endfor %}
 
-var overlays = {"Landings":landingMarkers, "Burst":burstMarkers, "Elevation Data":elevationDataBoundaries,};
+var weatherDataBoundaries = L.layerGroup();
+{% for square in weatherData %}
+L.polygon([[{{square.lat}}+0.5, {{square.lon}}-0.5],[{{square.lat}}+0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}-0.5]], {color:"red"}).addTo(weatherDataBoundaries);
+{% endfor %}
+
+var overlays = {"Landings":landingMarkers, "Burst":burstMarkers, "Elevation Data":elevationDataBoundaries, "Weather Data":weatherDataBoundaries,};
 var baselayers = {
     "Streets":streets,
     "Satellite":satellite,

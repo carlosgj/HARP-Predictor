@@ -52,16 +52,27 @@ def Map(request, pred_id):
     return render(request, "Predictor/map.html", {"pred":pred, 'points':points})
 
 def MultiMap(request):
+    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='weatherdata.kf5nte.org')
+    wc = wdb.cursor()
     preds = Prediction.objects.exclude(burstLatitude__isnull=True)
     launchpoints = launchLocation.objects.all()
-    elevationSquares = []
+    weatherSquares = []
     for i in range(33, 36):
         for j in range (-120, -116):
+            wc.execute("""SELECT * FROM WeatherData WHERE Latitude=%f AND Longitude=%f LIMIT 1"""%(i+0.5, j+0.5))
+            if len(wc.fetchall()) > 0:
+                weatherSquares.append({'lat':i+0.5, 'lon':j+0.5})
+
+    elevationSquares = []
+    for i in range(32, 38):
+        for j in range (-122, -114):
             result = elevationPoint.objects.using('elevationdata').filter(latitude=i+0.5)
             result = result.filter(longitude=j+0.5)
             if result:
                 elevationSquares.append({'lat':i+0.5, 'lon':j+0.5})
-    return render(request, "Predictor/multiMap.html", {"preds":preds,'launchpoints':launchpoints,'elevData':elevationSquares,})
+
+
+    return render(request, "Predictor/multiMap.html", {"preds":preds,'launchpoints':launchpoints,'elevData':elevationSquares, 'weatherData':weatherSquares})
 
 def PredictionList(request):
     data = list(Prediction.objects.all().order_by('launchTime'))

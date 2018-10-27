@@ -105,7 +105,7 @@ def runPrediction(prediction):
                 print colored("Balloon burst at %f, %f"%(newpoint.latitude, newpoint.longitude), 'green')
         if prediction.phase=='descent':
             if newpoint.elevation < groundAlt:
-                print colored("Balloon landed. Terminating.", 'green')
+                print colored("Balloon landed at %f, %f. Terminating."%(newpoint.latitude, newpoint.longitude), 'green')
                 prediction.landingPoint = newpoint
                 break
         #print newpoint

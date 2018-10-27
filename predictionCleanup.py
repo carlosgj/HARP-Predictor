@@ -27,17 +27,18 @@ def main():
             logger.info("Found %d predictions for launch time %s. Most recent: %s. Will delete others."%(len(preds), launchtime.strftime('%Y-%m-%d %H:%M:%S'), newest[1].strftime('%Y-%m-%d %H:%M:%S')))
             #Delete earlier preds
             for pred in preds:
-                logger.debug("Deleting trajectory points for prediction %d"%pred[0])
-                if DRY_RUN:
-                    print """DELETE FROM Predictor_predictionpoint WHERE prediction_id=%d"""%pred[0]
-                else:
-                    c.execute("""DELETE FROM Predictor_predictionpoint WHERE prediction_id=%d"""%pred[0])
+                if pred[0] != newest[0]:
+                    logger.debug("Deleting trajectory points for prediction %d"%pred[0])
+                    if DRY_RUN:
+                        print """DELETE FROM Predictor_predictionpoint WHERE prediction_id=%d"""%pred[0]
+                    else:
+                        c.execute("""DELETE FROM Predictor_predictionpoint WHERE prediction_id=%d"""%pred[0])
 
-                logger.debug("Deleting prediction ID %d"%pred[0])
-                if DRY_RUN:
-                    print """DELETE FROM Predictor_prediction WHERE id=%d"""%pred[0]
-                else:
-                    c.execute("""DELETE FROM Predictor_prediction WHERE id=%d"""%pred[0])
+                    logger.debug("Deleting prediction ID %d"%pred[0])
+                    if DRY_RUN:
+                        print """DELETE FROM Predictor_prediction WHERE id=%d"""%pred[0]
+                    else:
+                        c.execute("""DELETE FROM Predictor_prediction WHERE id=%d"""%pred[0])
 
 
     if not DRY_RUN:

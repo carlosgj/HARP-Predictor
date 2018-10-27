@@ -6,6 +6,7 @@
 #mapinfo td{
     border: 1px solid black;
     border-collapse: collapse;
+    width:10em;
 }
 #mapinfo span{
     float: left;

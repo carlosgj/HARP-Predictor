@@ -6,6 +6,7 @@ urlpatterns=[
     url(r'^$', views.index, name='index'),
     url(r'^list\/?$', views.PredictionList, name='list'),
     url(r'^map/(?P<pred_id>[0-9]+)\/?$', views.Map, name='map'),
+    url(r'^gafile/(?P<pred_id>[0-9]+)\/?$', views.GAFile, name='gafile'),
     url(r'^multiMap\/?$', views.MultiMap, name='multimap'),
     url(r'^addLaunchPoint\/?$', views.addLaunchPoint, name="addLaunchPoint"),
     url(r'^listLaunchPoints\/?$', views.LaunchPointList, name="launchPointList"),

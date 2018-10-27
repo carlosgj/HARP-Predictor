@@ -51,6 +51,31 @@ def Map(request, pred_id):
     print points
     return render(request, "Predictor/map.html", {"pred":pred, 'points':points})
 
+def GAFile(request, pred_id):
+    pred = Prediction.objects.get(pk=pred_id)
+    points = PredictionPoint.objects.filter(prediction=pred).order_by('time')
+    print points
+    retFile = """stk.v.11.0
+    BEGIN GreatArc
+        Method              DetVelFromTime
+        ArcGranularity      5.729577951308e-001
+        AltRef              MSL
+        AltInterpMethod     EllipsoidHeight
+"""
+    retFile += "        TimeOfFirstWaypoint\t%s\n"%(pred.launchTime.strftime("%d %b %Y %H:%M:%S"))
+    retFile += "        NumberOfWaypoints\t%d\n"%len(points)
+    retFile+="        BEGIN Waypoints\n"
+    for pt in points:
+        epochSeconds = pt.time-pred.launchTime
+        altitudeMeters = pt.altitude*0.3048
+        retFile += "        %f %f %f %f 0. 0.\n"%(epochSeconds.total_seconds(), pt.latitude, pt.longitude, altitudeMeters)
+    retFile += "        END Waypoints\n"
+    retFile += "    END GreatArc\n"
+    print retFile
+    response = HttpResponse(retFile, content_type="text/plain")
+    response['Content-Disposition'] = 'attachment; filename='+str(pred_id)+".ga"
+    return response
+
 def MultiMap(request):
     wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='weatherdata.kf5nte.org')
     wc = wdb.cursor()

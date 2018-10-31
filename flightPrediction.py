@@ -46,71 +46,74 @@ class Prediction():
     burstPoint=None #GeoPoint object
     landingPoint=None #GeoPoint object
     path=[]
+    def __str__(self):
+        return "Prediction: launch from %f, %f at %s; ^%f v%f"%(self.launchPoint.latitude, self.launchPoint.longitude, str(self.launchPoint.time), self.ascentRate, self.descentRate)
 
-def runPrediction(prediction):
-    assert (prediction.burstPressure is not None) or (prediction.burstAltitude is not None)
-    prediction.phase = 'ascent'
-    ascendingFlag = True
-    prediction.currentPoint = prediction.launchPoint
-    print "Launch point:", prediction.launchPoint
-    exactElevationFlag = 0
-    staleGroundAlt = None
-    while(True):
-        if exactElevationFlag == 0:
-            groundAlt = prediction.engine.getAltitudeAtPoint(prediction.currentPoint.latitude, prediction.currentPoint.longitude)
-            staleGroundAlt = groundAlt
-            if (prediction.currentPoint.elevation-groundAlt) > 5000:
-                exactElevationFlag = 5
-        else:
-            exactElevationFlag -= 1
-            groundAlt = staleGroundAlt
-        #print exactElevationFlag, groundAlt, prediction.currentPoint.elevation
-        #print prediction.currentPoint.latitude, prediction.currentPoint.longitude, groundAlt, roughelevation
-        if ascendingFlag and prediction.currentPoint.elevation > groundAlt:
-            ascendingFlag = False
-        prediction.currentPoint.groundAlt = groundAlt
-        #Copy point into path
-        prediction.path.append(copy.deepcopy(prediction.currentPoint))
-        #Get weather at point
-        try:
-            weather = prediction.engine.getWeatherDataInterpolated(prediction.currentPoint.latitude, prediction.currentPoint.longitude, prediction.currentPoint.time, prediction.currentPoint.elevation/feetPerMeter)
-        except:
-            print prediction.currentPoint
-            raise
-        newpoint = geoTimePoint(time=prediction.currentPoint.time+timedelta(seconds=iterationIntervalSeconds))
-        if prediction.phase == "ascent":
-            newpoint.elevation = prediction.currentPoint.elevation + (iterationIntervalSeconds*prediction.ascentRate)
-        elif prediction.phase == "descent":
-            newpoint.elevation = prediction.currentPoint.elevation - (iterationIntervalSeconds*prediction.descentRate)
-        deltaXFeet = weather['UGRD']*feetPerMeter*iterationIntervalSeconds*prediction.ugrdMultiplier
-        deltaYFeet = weather['VGRD']*feetPerMeter*iterationIntervalSeconds*prediction.vgrdMultiplier
-        feetPerDegreeLongitude = feetPerDegreeLongitudeEquator*math.cos(math.radians(prediction.currentPoint.latitude))
-        newpoint.latitude = prediction.currentPoint.latitude + (deltaYFeet/feetPerDegreeLatitude)
-        newpoint.longitude = prediction.currentPoint.longitude + (deltaXFeet/feetPerDegreeLongitude)
-        prediction.currentPoint = newpoint
-        
-        #Check if newpoint is in a grid square we have terrain data for
-        gridSquareTuple = (int(newpoint.latitude)+0.5, int(newpoint.longitude)-0.5)
-        if len(availableAltitudeSquares) > 0 and gridSquareTuple not in availableAltitudeSquares:
-            print colored("Balloon exited terrain data area at %f, %f."%(newpoint.latitude, newpoint.longitude), 'red')
-            break
-
-        if prediction.phase == 'ascent':
-            if (prediction.burstPressure is not None) and weather["Pressure"] < prediction.burstPressure:
-                prediction.phase = "descent"
-                prediction.burstPoint = newpoint
-            elif (prediction.burstAltitude is not None) and prediction.currentPoint.elevation > prediction.burstAltitude:
-                prediction.phase = "descent"
-                prediction.burstPoint = newpoint
-                print colored("Balloon burst at %f, %f"%(newpoint.latitude, newpoint.longitude), 'green')
-        if prediction.phase=='descent':
-            if newpoint.elevation < groundAlt:
-                print colored("Balloon landed at %f, %f. Terminating."%(newpoint.latitude, newpoint.longitude), 'green')
-                prediction.landingPoint = newpoint
+    def run(self):
+        self.engine.start()
+        assert (self.burstPressure is not None) or (self.burstAltitude is not None)
+        self.phase = 'ascent'
+        ascendingFlag = True
+        self.currentPoint = self.launchPoint
+        print "Launch point:", self.launchPoint
+        exactElevationFlag = 0
+        staleGroundAlt = None
+        while(True):
+            if exactElevationFlag == 0:
+                groundAlt = self.engine.getAltitudeAtPoint(self.currentPoint.latitude, self.currentPoint.longitude)
+                staleGroundAlt = groundAlt
+                if (self.currentPoint.elevation-groundAlt) > 5000:
+                    exactElevationFlag = 5
+            else:
+                exactElevationFlag -= 1
+                groundAlt = staleGroundAlt
+            #print exactElevationFlag, groundAlt, prediction.currentPoint.elevation
+            #print prediction.currentPoint.latitude, prediction.currentPoint.longitude, groundAlt, roughelevation
+            if ascendingFlag and self.currentPoint.elevation > groundAlt:
+                ascendingFlag = False
+            self.currentPoint.groundAlt = groundAlt
+            #Copy point into path
+            self.path.append(copy.deepcopy(self.currentPoint))
+            #Get weather at point
+            try:
+                weather = self.engine.getWeatherDataInterpolated(self.currentPoint.latitude, self.currentPoint.longitude, self.currentPoint.time, self.currentPoint.elevation/feetPerMeter)
+            except:
+                print self.currentPoint
+                raise
+            newpoint = geoTimePoint(time=self.currentPoint.time+timedelta(seconds=iterationIntervalSeconds))
+            if self.phase == "ascent":
+                newpoint.elevation = self.currentPoint.elevation + (iterationIntervalSeconds*self.ascentRate)
+            elif self.phase == "descent":
+                newpoint.elevation = self.currentPoint.elevation - (iterationIntervalSeconds*self.descentRate)
+            deltaXFeet = weather['UGRD']*feetPerMeter*iterationIntervalSeconds*self.ugrdMultiplier
+            deltaYFeet = weather['VGRD']*feetPerMeter*iterationIntervalSeconds*self.vgrdMultiplier
+            feetPerDegreeLongitude = feetPerDegreeLongitudeEquator*math.cos(math.radians(self.currentPoint.latitude))
+            newpoint.latitude = self.currentPoint.latitude + (deltaYFeet/feetPerDegreeLatitude)
+            newpoint.longitude = self.currentPoint.longitude + (deltaXFeet/feetPerDegreeLongitude)
+            self.currentPoint = newpoint
+            
+            #Check if newpoint is in a grid square we have terrain data for
+            gridSquareTuple = (int(newpoint.latitude)+0.5, int(newpoint.longitude)-0.5)
+            if len(availableAltitudeSquares) > 0 and gridSquareTuple not in availableAltitudeSquares:
+                print colored("Balloon exited terrain data area at %f, %f."%(newpoint.latitude, newpoint.longitude), 'red')
                 break
-        #print newpoint
-        #break #debugging
 
+            if self.phase == 'ascent':
+                if (self.burstPressure is not None) and weather["Pressure"] < self.burstPressure:
+                    self.phase = "descent"
+                    self.burstPoint = newpoint
+                elif (self.burstAltitude is not None) and self.currentPoint.elevation > self.burstAltitude:
+                    self.phase = "descent"
+                    self.burstPoint = newpoint
+                    print colored("Balloon burst at %f, %f"%(newpoint.latitude, newpoint.longitude), 'green')
+            if self.phase=='descent':
+                if self.currentPoint.elevation < groundAlt:
+                    print colored("Balloon landed at %f, %f. Terminating."%(newpoint.latitude, newpoint.longitude), 'green')
+                    self.landingPoint = newpoint
+                    break
+            #print newpoint
+            #break #debugging
+        self.engine.stop()
 
 
 if __name__ == "__main__":
@@ -122,7 +125,8 @@ if __name__ == "__main__":
     ch.setFormatter(formatter)
     logger.addHandler(ch)
     analysisLogger.addHandler(ch)
-    launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime.utcnow())
+    #launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime.utcnow())
+    launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime(2018, 8, 19, 00))
     thisEng = Analysis.AnalysisEngine()
-    pred = Prediction(launchPoint, 7.2, 16, burstAltitude=60000, engine=thisEng)
-    runPrediction(pred)
+    pred = Prediction(launchPoint, 7, 15, burstAltitude=60000, engine=thisEng)
+    pred.run()

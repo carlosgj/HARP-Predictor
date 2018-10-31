@@ -34,6 +34,13 @@ class Prediction(models.Model):
     ascentRate = models.FloatField("Ascent rate")
     descentRate = models.FloatField("Descent rate")
 
+    usingLatest = models.BooleanField("Uses latest prediction", default=False, db_index=True)
+    
+    class Meta:
+        index_together = [
+            ['launchTime', 'launchPoint', 'burstAltitude', 'ascentRate', 'descentRate'],
+        ]
+
 class PredictionPoint(models.Model):
     prediction = models.ForeignKey(Prediction, on_delete=models.CASCADE)
     latitude = models.FloatField()

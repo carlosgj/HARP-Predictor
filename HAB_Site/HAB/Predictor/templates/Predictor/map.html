@@ -86,7 +86,18 @@ var points = [
 
 var polyline = L.polyline(points, {color: 'red'}).addTo(mymap);
 
-var overlays = {};
+var elevationDataBoundaries = L.layerGroup();
+{% for square in elevData %}
+L.polygon([[{{square.lat}}+0.5, {{square.lon}}-0.5],[{{square.lat}}+0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}-0.5]], {color:"blue"}).addTo(elevationDataBoundaries);
+{% endfor %}
+
+var weatherDataBoundaries = L.layerGroup();
+{% for square in weatherData %}
+L.polygon([[{{square.lat}}+0.5, {{square.lon}}-0.5],[{{square.lat}}+0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}-0.5]], {color:"red"}).addTo(weatherDataBoundaries);
+{% endfor %}
+
+
+var overlays = {"Elevation Data":elevationDataBoundaries, "Weather Data":weatherDataBoundaries,};
 var baselayers = {
     "Streets":streets,
     "Satellite":satellite,

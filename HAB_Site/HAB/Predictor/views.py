@@ -45,11 +45,29 @@ def index(request):
     return render(request, "Predictor/index.html", context)
 
 def Map(request, pred_id):
+    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='weatherdata.kf5nte.org')
+    wc = wdb.cursor()
+
     pred = Prediction.objects.get(pk=pred_id)
     points = PredictionPoint.objects.filter(prediction=pred).order_by('time')
-    print pred_id
-    print points
-    return render(request, "Predictor/map.html", {"pred":pred, 'points':points})
+    weatherSquares = []
+    for i in range(33, 36):
+        for j in range (-120, -116):
+            wc.execute("""SELECT * FROM WeatherData WHERE Latitude=%f AND Longitude=%f LIMIT 1"""%(i+0.5, j+0.5))
+            if len(wc.fetchall()) > 0:
+                weatherSquares.append({'lat':i+0.5, 'lon':j+0.5})
+
+    elevationSquares = []
+    for i in range(32, 38):
+        for j in range (-122, -114):
+            result = elevationPoint.objects.using('elevationdata').filter(latitude=i+0.5)
+            result = result.filter(longitude=j+0.5)
+            if result:
+                elevationSquares.append({'lat':i+0.5, 'lon':j+0.5})
+    wdb.close()
+    print elevationSquares
+    print weatherSquares
+    return render(request, "Predictor/map.html", {"pred":pred, 'points':points, 'elevData':elevationSquares, 'weatherData':weatherSquares,})
 
 def GAFile(request, pred_id):
     pred = Prediction.objects.get(pk=pred_id)
@@ -96,7 +114,7 @@ def MultiMap(request):
             if result:
                 elevationSquares.append({'lat':i+0.5, 'lon':j+0.5})
 
-
+    wdb.close()
     return render(request, "Predictor/multiMap.html", {"preds":preds,'launchpoints':launchpoints,'elevData':elevationSquares, 'weatherData':weatherSquares})
 
 def PredictionList(request):

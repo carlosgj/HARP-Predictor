@@ -12,6 +12,7 @@ feetPerDegreeLatitude = 364000
 feetPerDegreeLongitudeEquator = 365220
 
 availableAltitudeSquares = []
+availableWeatherSquares = []
 
 class geoTimePoint():
     latitude=None
@@ -60,7 +61,10 @@ class Prediction():
         staleGroundAlt = None
         while(True):
             if exactElevationFlag == 0:
-                groundAlt = self.engine.getAltitudeAtPoint(self.currentPoint.latitude, self.currentPoint.longitude)
+                try:
+                    groundAlt = self.engine.getAltitudeAtPoint(self.currentPoint.latitude, self.currentPoint.longitude)
+                except AssertionError:
+                    return
                 staleGroundAlt = groundAlt
                 if (self.currentPoint.elevation-groundAlt) > 5000:
                     exactElevationFlag = 5
@@ -98,6 +102,12 @@ class Prediction():
                 print colored("Balloon exited terrain data area at %f, %f."%(newpoint.latitude, newpoint.longitude), 'red')
                 break
 
+            #check if newpoint is in a grid square that we have weather data for
+            if len(availableWeatherSquares) > 0 and gridSquareTuple not in availableWeatherSquares:
+                print colored("Balloon exited weather data area at %f, %f."%(newpoint.latitude, newpoint.longitude), 'red')
+                break
+
+
             if self.phase == 'ascent':
                 if (self.burstPressure is not None) and weather["Pressure"] < self.burstPressure:
                     self.phase = "descent"
@@ -126,7 +136,7 @@ if __name__ == "__main__":
     logger.addHandler(ch)
     analysisLogger.addHandler(ch)
     #launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime.utcnow())
-    launchPoint = geoTimePoint(34.237, -118.254, 1000, datetime(2018, 8, 19, 00))
+    launchPoint = geoTimePoint(34.237, -118.254, 1794, datetime(2017, 12, 25, 6))
     thisEng = Analysis.AnalysisEngine()
     pred = Prediction(launchPoint, 7, 15, burstAltitude=60000, engine=thisEng)
     pred.run()

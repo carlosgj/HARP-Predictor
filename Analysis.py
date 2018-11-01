@@ -12,6 +12,9 @@ The basic purpose of this module is interpolation.
 """
 
 
+class MissingDataException(Exception):
+    pass
+
 class AnalysisEngine():
     def __init__(self, predTime=None):
         self.wdb = None
@@ -94,7 +97,8 @@ class AnalysisEngine():
         res50 = self.getHGTsforExact(latitude, longitude, 0.50, time)
         #if not res25 and not res50:
         if not res50:
-            logger.critical("Could not find HGTs for latitude %f, longitude %f, at %s. Balloon may be out of database limits."%(latitude, longitude, time.strftime('%Y-%m-%d %H:%M:%S')))
+            logger.critical("Could not find HGTs for latitude %f, longitude %f, at %s. Balloon may be out of weather database limits."%(latitude, longitude, time.strftime('%Y-%m-%d %H:%M:%S')))
+            raise MissingDataException
         res50Table = {}
         for i in res50:
             res50Table[i[0]] = i[1]
@@ -141,9 +145,12 @@ class AnalysisEngine():
             return retDict
         sortedKeys = sorted(table.keys())
         if elevation < sortedKeys[0]:
-            retDict['lowerElevation'] = retDict['upperElevation'] = sortedKeys[0]
-            retDict['lowerIsobar'] = retDict['upperIsobar'] = table[sortedKeys[0]]
-            logger.warning("Elevation %f is lower than minimum isobar elevation %f. Assuming %f."%(elevation, sortedKeys[0], sortedKeys[0]))
+            retDict['lowerElevation'] = sortedKeys[0]
+            retDict['upperElevation'] = sortedKeys[1]
+            retDict['lowerIsobar'] = table[sortedKeys[0]]
+            retDict['upperIsobar'] = table[sortedKeys[1]]
+            logger.warning("Elevation %f is lower than minimum isobar elevation %f. Using lowest two elevations & isobars."%(elevation, sortedKeys[0]))
+            return retDict
         for idx, hgt in enumerate(sortedKeys):
             if  hgt < elevation:
                 retDict['lowerElevation']=hgt
@@ -165,8 +172,8 @@ class AnalysisEngine():
     def getZPlaneAverage(self, latitude, longitude, time, elevation):
         points = self.bracketElevation(latitude, longitude, time, elevation)
         if (not points['lowerIsobar']) or (not points['upperIsobar']):
-            print latitude, longitude, time, elevation, points
-            print "YOU NEED TO IMPLEMENT ERROR HANDLING MOTHERFUCKER"
+            logger.critical(' '.join([str(latitude), str(longitude), str(time), str(elevation), str(points)]))
+            logger.critical("YOU NEED TO IMPLEMENT ERROR HANDLING MOTHERFUCKER")
             raise
             #TODO: error handling
         try:
@@ -174,7 +181,7 @@ class AnalysisEngine():
             lowerWeightingFactor = (points['upperElevation']-float(elevation))/(points['upperElevation']-points['lowerElevation'])
         except ZeroDivisionError:
             upperWeightingFactor = lowerWeightingFactor = 0.5
-            
+
         meanPressure = self.linterp(elevation, points['lowerElevation'], points['upperElevation'], points['lowerIsobar'], points['upperIsobar'])
 
         #Get weather data at lower point
@@ -304,8 +311,13 @@ class AnalysisEngine():
         beforeTime = min(availableTimes)
         afterTime = max(availableTimes)
         #print "Time: ", time
-        assert beforeTime <= time
-        assert afterTime >= time
+        if not beforeTime <= time:
+            logger.critical("Weather data in this prediction not early enough")
+            raise MissingDataExcecption
+        if not afterTime >= time:
+            logger.critical("Weather data in this prediction not late enough")
+            raise MissingDataException
+
         for predtime in availableTimes:
             if predtime > beforeTime and predtime < time:
                 beforeTime = predtime
@@ -377,6 +389,7 @@ class AnalysisEngine():
         #self.c.execute("""USE test_dataset""")
         if not results:
             logger.critical("Could not find altitude data for latitude %f, longitude %f. Balloon may be out of database limits."%(latitude, longitude))
+            raise MissingDataException
         results = [point(x[0], x[1], x[2]) for x in results]
         return results
 
@@ -424,7 +437,7 @@ class AnalysisEngine():
                     print pt.latitude, pt.longitude
                 print "ypoints1:", ypoints1, " ypoints2:", ypoints2
                 print latitude, longitude
-                print lowerLat, upperLat, lowerLon, upperLon
+                #print lowerLat, upperLat, lowerLon, upperLon
                 raise
             xpt1 = self.linterp(latitude, ypoints1[0].latitude, ypoints1[1].latitude, ypoints1[0].elevation, ypoints1[1].elevation)
             xpt2 = self.linterp(latitude, ypoints2[0].latitude, ypoints2[1].latitude, ypoints2[0].elevation, ypoints2[1].elevation)

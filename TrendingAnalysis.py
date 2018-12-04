@@ -46,6 +46,14 @@ class FlightPrediction():
     def __str__(self):
         return "Prediction for launch at %s from %f %f, landing at %s"%(self.launchTime.strftime("%Y/%m/%d %H:%M:%S"), self.launchLatitude, self.launchLongitude, self.landingTime.strftime("%Y/%m/%d %H:%M:%S"))
 
+def wrapSubtractAngle(a1, a2):
+    res = a1 - a2
+    if res < -180:
+        res += 360
+    elif res > 180:
+        res -= 360
+    return res
+        
 def ingestData():
     wdb=MySQLdb.connect(host='weatherdata.kf5nte.org', user='readonly', passwd='',db="Django")
     wc = wdb.cursor()
@@ -185,28 +193,41 @@ def plotAllPoints(predCache, paramSet, launchLocation, resultsRootDir):
             break
 
 def plotDayTrending(predCache):
-    launchTimes = []
-    landingBearings = []
-    landingDistances = []
+    #get all days for which we have data
+    days = {}
     for pred in predCache:
-        launchTimes.append(pred.launchTime.time())
-        landingBearings.append(pred.bearingToLanding)
-        if pred.landed:
-            landingDistances.append(pred.groundDistance/FEET_PER_MILE)
+        dateStr = pred.launchTime.strftime("%Y/%m/%d")
+        if dateStr not in days:
+            days[dateStr] = []
+        days[dateStr].append(pred)
 
-    reducedLaunchTimes = list(set(launchTimes))
-    averageBearings = []
-    averageDistances = []
-    for lt in reducedLaunchTimes:
-        thisBearings = []
-        for i, bearing in enumerate(landingBearings):
-            if launchTimes[i] == lt:
-                thisBearings.append(bearing)
-        averageBearings.append(np.mean(thisBearings))
-
-    plt.plot(reducedLaunchTimes, averageBearings, 'b.', ls="None")
+    #For each day, compute bearing deltas
+    deltas = []
+    for day, preds in days.iteritems():
+        preds.sort(key=lambda x: x.launchTime)
+        firstFlightTime = preds[0].launchTime
+        firstFlightBearing = preds[0].bearingToLanding
+        for pred in preds[1:]:
+            deltas.append(( pred.launchTime - firstFlightTime, wrapSubtractAngle(pred.bearingToLanding, firstFlightBearing) ))
+        
+    #zip data
+    timeGroupedDeltas = {}
+    for delta in deltas:
+        if delta[0] not in timeGroupedDeltas:
+            timeGroupedDeltas[delta[0]] = []
+        timeGroupedDeltas[delta[0]].append(delta[1])
+    print timeGroupedDeltas
+    times = []
+    meanDeltas = []
+    for time, deltas in timeGroupedDeltas.iteritems():
+        times.append(time.total_seconds()/3600.)
+        meanDeltas.append(np.average(deltas))
+        print time, np.average(deltas), np.std(deltas)
+    
+    
+    plt.plot(times, meanDeltas, 'b.', ls="None")
     plt.yticks(np.arange(-180, 181, 30))
-    plt.xticks([datetime.time(0), datetime.time(2), datetime.time(6), datetime.time(10), datetime.time(14), datetime.time(18), datetime.time(22)])
+    #plt.xticks([datetime.time(0), datetime.time(2), datetime.time(6), datetime.time(10), datetime.time(14), datetime.time(18), datetime.time(22)])
     plt.grid(b=True)
     
     plt.show()
@@ -241,14 +262,14 @@ def generateLaTeXReport(launchLocations, paramSets):
     
 if __name__=="__main__":
     cache, launchLocations, paramSets = ingestData()
-    for launchLocation in launchLocations:
-        print "Processing launchpoint %d..."%launchLocation
-        thisLLDir = os.path.join(resultsDir, "LaunchLoc%d"%launchLocation)
-        os.mkdir(thisLLDir)
-        for paramSet in paramSets.keys():
-            thisParamSetDir = os.path.join(thisLLDir, "ParamSet%d"%paramSet)
-            os.mkdir(thisParamSetDir)
-            plotAllPoints(cache, paramSet, launchLocation, thisParamSetDir)
-    generateLaTeXReport(launchLocations, paramSets)
-    #plotDayTrending(cache)
+    #for launchLocation in launchLocations:
+    #    print "Processing launchpoint %d..."%launchLocation
+    #    thisLLDir = os.path.join(resultsDir, "LaunchLoc%d"%launchLocation)
+    #    os.mkdir(thisLLDir)
+    #    for paramSet in paramSets.keys():
+    #        thisParamSetDir = os.path.join(thisLLDir, "ParamSet%d"%paramSet)
+    #        os.mkdir(thisParamSetDir)
+    #        plotAllPoints(cache, paramSet, launchLocation, thisParamSetDir)
+    #generateLaTeXReport(launchLocations, paramSets)
+    plotDayTrending(cache)
     

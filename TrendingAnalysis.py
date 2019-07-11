@@ -93,6 +93,9 @@ def ingestData():
         this.launchTime = result[1]
         this.launchLocation = result[2]
         this.landed = False
+        this.ascentRate = paramSets[result[3]]['ascentRate']
+        this.descentRate = paramSets[result[3]]['descentRate']
+        this.burstAltitude = paramSets[result[3]]['burstAltitude']
         this.paramSet = result[3]
         wc.execute("""SELECT latitude, longitude FROM Predictor_predictionpoint WHERE prediction_id=%d ORDER BY time DESC LIMIT 1"""%this.id)
         pt = wc.fetchall()
@@ -191,6 +194,7 @@ def plotAllPoints(predCache, paramSet, launchLocation, resultsRootDir):
         thisPlot = endDate
         if endDate >= lastDate:
             break
+    return launchTimes, incompleteLaunchTimes, landingBearings, incompleteBearings
 
 def plotDayTrending(predCache):
     #get all days for which we have data
@@ -262,14 +266,14 @@ def generateLaTeXReport(launchLocations, paramSets):
     
 if __name__=="__main__":
     cache, launchLocations, paramSets = ingestData()
-    #for launchLocation in launchLocations:
-    #    print "Processing launchpoint %d..."%launchLocation
-    #    thisLLDir = os.path.join(resultsDir, "LaunchLoc%d"%launchLocation)
-    #    os.mkdir(thisLLDir)
-    #    for paramSet in paramSets.keys():
-    #        thisParamSetDir = os.path.join(thisLLDir, "ParamSet%d"%paramSet)
-    #        os.mkdir(thisParamSetDir)
-    #        plotAllPoints(cache, paramSet, launchLocation, thisParamSetDir)
-    #generateLaTeXReport(launchLocations, paramSets)
-    plotDayTrending(cache)
+    for launchLocation in launchLocations:
+        print "Processing launchpoint %d..."%launchLocation
+        thisLLDir = os.path.join(resultsDir, "LaunchLoc%d"%launchLocation)
+        os.mkdir(thisLLDir)
+        for paramSet in paramSets.keys():
+            thisParamSetDir = os.path.join(thisLLDir, "ParamSet%d"%paramSet)
+            os.mkdir(thisParamSetDir)
+            plotAllPoints(cache, paramSet, launchLocation, thisParamSetDir)
+    generateLaTeXReport(launchLocations, paramSets)
+    #plotDayTrending(cache)
     

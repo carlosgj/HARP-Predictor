@@ -66,8 +66,14 @@ def updateDataset(valueTime, resolution):
         processedData = GRIBparser.parseGRIBdata(data)
         logger.info("Parsing complete.")
         tupleCount = 0
-        for grib in processedData:
-            tupleCount += len(grib[1])
+        try:
+            for grib in processedData:
+                tupleCount += len(grib[1])
+        except:
+            errorfile = open("/var/log/weathererror.log", 'w')
+            errorfile.write(data)
+            errorfile.close()
+            raise
         logger.info("Processing a total of %d tuples..."%tupleCount)
         for i, grib in enumerate(processedData):
             logger.debug("Ingesting data from GRIB %d of %d..."%(i, len(processedData)))
@@ -80,6 +86,7 @@ def updateDataset(valueTime, resolution):
     return
     
 def findLatestPrediction():
+    #return datetime(2019, 7, 11, 06)
     currentTime = datetime.utcnow()
     mostRecentCycle = (currentTime.hour//6)*6
     ftp = FTP('ftp.ncep.noaa.gov')
@@ -129,16 +136,16 @@ def generateURL(latTop, latBot, longLeft, longRight, dataTime, predictionTime, r
     latBot = str(latBot)
     longLeft = str(longLeft)
     longRight = str(longRight)
-    forecastCycle = predictionTime.strftime('%Y%m%d%H')
+    forecastCycle = predictionTime.strftime('%Y%m%d%%2F%H')
     forecastCycleHour = predictionTime.strftime('%H')
     forecastDelta= dataTime - predictionTime
     forecastHoursIdeal = forecastDelta.days*24+forecastDelta.seconds//3600
     forecastHour = coerceForecastHour(forecastHoursIdeal, resolution)
                 
     if resolution == 0.25:
-        bigURL = "http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t"
+        bigURL = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t"
     elif resolution == 0.5:
-        bigURL = "http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p50.pl?file=gfs.t"
+        bigURL = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p50.pl?file=gfs.t"
     bigURL += forecastCycleHour
     if resolution == 0.25:
         bigURL += "z.pgrb2.0p25.f"
@@ -169,7 +176,7 @@ def generateURL(latTop, latBot, longLeft, longRight, dataTime, predictionTime, r
 def downloadFile(url):
     attemptCount = 0
     html = None
-    while(attemptCount < 4):
+    while(attemptCount < 20):
         print "Attempt:", attemptCount
         attemptCount += 1
         try:
@@ -222,5 +229,7 @@ if __name__=="__main__":
     #print url 
     #print type(downloadFile(url))
     #updateDataset(dataTime)
+    logger.info("Beginning data ingest at %s..."%datetime.now().strftime('%Y%m%d %H%M%S'))
     getAllLatestData()
+    logger.info("Completed data ingest at %s..."%datetime.now().strftime('%Y%m%d %H%M%S'))
     

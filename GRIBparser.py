@@ -139,7 +139,7 @@ def parseGRIB(content):
                 assert ord(content[40]) == 0
                 assert ord(content[41]) == 0
                 angleSubdivisions = struct.unpack('>L', content[42:46])[0]
-                assert angleSubdivisions == 0xffffffff
+                #assert angleSubdivisions == 0xffffffff
                 firstPointLat = struct.unpack('>L', content[46:50])[0]
                 firstPointLat = convertlatlon(firstPointLat)
                 logger.debug("\t\tFirst point latitude: %f"%firstPointLat)
@@ -181,7 +181,7 @@ def parseGRIB(content):
                 return
             paramCatIdx = ord(content[9])
             disciplineCategories = parameterCategories.get(disciplineIdx, None)
-            if discipline:
+            if discipline and (disciplineCategories is not None):
                 paramCategory = disciplineCategories.get(paramCatIdx, None)
                 if paramCategory:
                     logger.debug("\t\tParameter category: %s"%paramCategory["Category Name"])
@@ -208,8 +208,16 @@ def parseGRIB(content):
             logger.debug("\t\tForecast hour: %d"%forecastHour)
             interval = datetime.timedelta(hours=forecastHour)
             gribData["valuetime"]=refTime+interval
-            #assert ord(content[22]) == 100
-            assert ord(content[23]) == 0
+            try:
+                assert ord(content[22]) == 100
+            except:
+                logger.error("content[22] (type of first fixed surface) = %d. Expected 100."%ord(content[22]))
+                return
+            try:
+                assert ord(content[23]) == 0
+            except:
+                logger.error("content[23] (scale of first fixed surface) = %d. Expected 0."%ord(content[23]))
+                return
             mbPress = struct.unpack('>L', content[24:28])[0]
             mbPress /= 100.
             logger.debug("\t\tPressure (mb): %f"%mbPress)

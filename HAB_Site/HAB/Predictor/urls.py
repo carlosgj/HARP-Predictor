@@ -13,4 +13,5 @@ urlpatterns=[
     url(r'^listPreds\/?$', views.WeatherDataList, name="weatherdatalist"),
     url(r'^getWeatherDataJson/(?P<table_name>gfs\d{10})\/?$', views.WeatherDataJson, name="weatherdatajson"),
     url(r'^showWeatherData/(?P<table_name>gfs\d{10})\/?$', views.ShowWeatherData, name="showweatherdata"),
+    url(r'^dataExitMap\/?$', views.DataExitMap, name="dataExitMap"),
 ]

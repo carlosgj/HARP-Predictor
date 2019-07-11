@@ -23,14 +23,6 @@ logger.addHandler(ch)
 
 USE_STORED_PREDS = False
 
-#####################
-# FLIGHT PARAMETERS #
-#####################
-ascentRate = 7      #
-descentRate = 15    #
-burstAltitude=60000 #
-#####################
-
 #########################
 # SIMULATION PARAMETERS #
 #########################
@@ -56,7 +48,6 @@ def generatePredictions():
             if len(ec.fetchall()) > 0:
                 #We have data for this square
                 elevgridsquares.append((centerlat, centerlon))
-            print """SELECT * FROM test_dataset.WeatherData WHERE Latitude=%f AND Longitude=%f LIMIT 1"""%(centerlat, centerlon)
             wc.execute("""SELECT * FROM test_dataset.WeatherData WHERE Latitude=%f AND Longitude=%f LIMIT 1"""%(centerlat, centerlon))
             if len(wc.fetchall()) > 0:
                 #We have data for this square
@@ -99,6 +90,20 @@ def generatePredictions():
             this['altitude'] = i[3]
             launchpoints.append(this)
 
+    #Get all balloon parameter sets
+    wc.execute("""USE Django""")
+    wc.execute("""SELECT id, burstAltitude, ascentRate, descentRate, isActive FROM Predictor_balloonparameterset""")
+    _paramsets = wc.fetchall()
+    paramsets = []
+    for i in _paramsets:
+        if i[4]:
+            this  = {}
+            this['id'] = i[0]
+            this['burstAltitude'] = i[1]
+            this['ascentRate'] = i[2]
+            this['descentRate'] = i[3]
+            paramsets.append(this)
+
     allPredictions = []
     i = 0
     predTimes.sort()
@@ -113,23 +118,26 @@ def generatePredictions():
             predTime = predTimes[i]
         if (thisLaunchTime - predTime) < datetime.timedelta(hours=384):
             for launchpoint in launchpoints:
-                launchPt = flightPrediction.geoTimePoint(launchpoint['latitude'], launchpoint['longitude'], launchpoint['altitude'], thisLaunchTime)
-                #print launchPt
-                thisPred = flightPrediction.Prediction(launchPt, ascentRate, descentRate, burstAltitude=burstAltitude)
-                thisPred.path = []
-                thisPred.launchPointID = launchpoint['id']    
+                for paramset in paramsets:
+                    launchPt = flightPrediction.geoTimePoint(launchpoint['latitude'], launchpoint['longitude'], launchpoint['altitude'], thisLaunchTime)
+                    #print launchPt
+                    thisPred = flightPrediction.Prediction(launchPt, paramset['ascentRate'], paramset['descentRate'], burstAltitude=paramset['burstAltitude'])
+                    thisPred.path = []
+                    thisPred.launchPointID = launchpoint['id']    
                 
                 
-                #Check if a prediction has already been run for these parameters
-                wc.execute("""SELECT * FROM Predictor_prediction WHERE usingPrediction=%s AND launchTime=%s AND launchPoint_id=%d AND ascentRate=%f AND descentRate=%f"""%(predTime.strftime("'%Y-%m-%d %H:%M:%S'"), launchPt.time.strftime("'%Y-%m-%d %H:%M:%S'"), launchpoint['id'], ascentRate, descentRate))
-                if len(wc.fetchall()) == 0:
-                    thisEng = Analysis.AnalysisEngine()
-                    thisEng.predTime = predTime
-                    thisPred.engine = thisEng
-                    allPredictions.append(thisPred)
-                    print thisPred, thisPred.engine.predTime
-                else:
-                    print "Prediction already exists for ", thisPred, predTime
+                    #Check if a prediction has already been run for these parameters
+                    wc.execute("""SELECT usingPrediction FROM Predictor_prediction WHERE launchTime=%s AND launchPoint_id=%d AND parameters_id=%d"""%(launchPt.time.strftime("'%Y-%m-%d %H:%M:%S'"), launchpoint['id'], paramset['id']))
+                    results = wc.fetchall()
+                    if len(results)==0 or max([x[0] for x in results]) < predTime:
+                        thisEng = Analysis.AnalysisEngine()
+                        thisEng.predTime = predTime
+                        thisPred.engine = thisEng
+                        thisPred.balloonParameterSet = paramset['id']
+                        allPredictions.append(thisPred)
+                        print thisPred, thisPred.engine.predTime
+                    else:
+                        print "Identical or more recent prediction already exists for ", thisPred, predTime
         else:
             if i < (len(predTimes)-1):
                 print "Launch time outside weather prediction time"
@@ -159,12 +167,11 @@ def runit(pred):
         raise
     #else:
     if True:
-        #c.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, burstTime, burstLatitude, burstLongitude, landingTime, landingLatitude, landingLongitude, usingPrediction, ascentRate, descentRate, burstAltitude, landingAltitude) VALUES (%d, '%s', '%s', %f, %f, '%s', %f, %f, '%s', %f, %f, %d, %d)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, latestPredTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate, pred.burstPoint.elevation, pred.landingPoint.elevation))
-        thisc.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, usingPrediction, ascentRate, descentRate, usingLatest) VALUES (%d, '%s', '%s', %f, %f, True)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.engine.predTime.strftime('%Y-%m-%d %H:%M:%S'), ascentRate, descentRate))
+        thisc.execute("""INSERT INTO Predictor_prediction (launchPoint_id, launchTime, usingPrediction, parameters_id) VALUES (%d, '%s', '%s', %d)"""%(pred.launchPointID, pred.launchPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.engine.predTime.strftime('%Y-%m-%d %H:%M:%S'), pred.balloonParameterSet))
         thisPredictionID = thisc.lastrowid
         #db.commit()
         if pred.burstPoint:
-            thisc.execute("""UPDATE Predictor_prediction SET burstTime='%s', burstLatitude=%f, burstLongitude=%f, burstAltitude=%d WHERE id=%d"""%(pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, pred.burstAltitude, thisPredictionID))
+            thisc.execute("""UPDATE Predictor_prediction SET burstTime='%s', burstLatitude=%f, burstLongitude=%f WHERE id=%d"""%(pred.burstPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.burstPoint.latitude, pred.burstPoint.longitude, thisPredictionID))
         if pred.landingPoint:
             thisc.execute("""UPDATE Predictor_prediction SET landingTime='%s', landingLatitude=%f, landingLongitude=%f, landingAltitude=%d WHERE id=%d"""%(pred.landingPoint.time.strftime('%Y-%m-%d %H:%M:%S'), pred.landingPoint.latitude, pred.landingPoint.longitude, pred.landingPoint.elevation, thisPredictionID))
         if not pred.path:

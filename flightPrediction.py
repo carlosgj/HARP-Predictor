@@ -5,7 +5,7 @@ import math
 import logging
 from termcolor import colored
 logger = logging.getLogger(__name__)
-iterationIntervalSeconds = 30
+iterationIntervalSeconds = 10
 
 feetPerMeter = 3.28084
 feetPerDegreeLatitude = 364000

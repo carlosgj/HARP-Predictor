@@ -188,3 +188,32 @@ def ShowWeatherData(request, table_name):
     context = {'table':table_name}
     return render(request, 'Predictor/weatherDataAnalysis.html', context)
 
+def DataExitMap(request):
+    wdb = MySQLdb.connect(user='readonly', db='test_dataset', passwd='', host='weatherdata.kf5nte.org')
+    wc = wdb.cursor()
+    #paths = []
+    terminationPoints = []
+    preds = Prediction.objects.filter(landingTime=None)
+    for pred in preds:
+        points = PredictionPoint.objects.filter(prediction=pred).order_by('-time').all()
+        terminationPoints.append(points[0])
+        #paths.append(points)
+
+
+    weatherSquares = []
+    for i in range(33, 36):
+        for j in range (-120, -116):
+            wc.execute("""SELECT * FROM WeatherData WHERE Latitude=%f AND Longitude=%f LIMIT 1"""%(i+0.5, j+0.5))
+            if len(wc.fetchall()) > 0:
+                weatherSquares.append({'lat':i+0.5, 'lon':j+0.5})
+
+    elevationSquares = []
+    for i in range(32, 38):
+        for j in range (-122, -114):
+            result = elevationPoint.objects.using('elevationdata').filter(latitude=i+0.5)
+            result = result.filter(longitude=j+0.5)
+            if result:
+                elevationSquares.append({'lat':i+0.5, 'lon':j+0.5})
+    wdb.close()
+    return render(request, "Predictor/dataExitMap.html", {'pred':preds[0], 'points':terminationPoints, 'elevData':elevationSquares, 'weatherData':weatherSquares,})
+

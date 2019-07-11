@@ -1,0 +1,98 @@
+{% extends "Predictor/Predictor.html" %}
+{% block title %}Prediction Map{% endblock %}
+{% block extrahead %}
+<link rel="stylesheet" type="text/css" href="/static/Predictor/map.css" /> 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css"
+   integrity="sha512-M2wvCLH6DSRazYeZRIm1JnYyh22purTM+FDB5CsyxtQJYeKq83arPe5wgbNmcFXGqiSH2XR8dT/fJISVA1r/zQ=="
+   crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"
+   integrity="sha512-lInM/apFSqyy1o6s89K4iQUKg6ppXEgsVxT35HbzUupEVRh2Eu9Wdl4tHj7dZO0s1uvplcYGmt3498TtHq+log=="
+   crossorigin=""></script>
+{% endblock %}
+{% block content %}
+
+<div id="mapid" style="height: 600px;"></div>
+<div id="mapinfo">
+<span id="crsPos">
+<table>
+<th colspan=2>Cursor Position</th>
+<tr><td id='crsLat'></td><td id='crsLon'></td></tr>
+</table>
+</span>
+</div>
+
+<a href="/gafile/{{pred.id}}">Download .ga file</a>
+
+<script>
+var mymap = L.map('mapid').setView([{{pred.launchPoint.latitude}}, {{pred.launchPoint.longitude}}], 10);
+
+var streets = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.streets',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var satellite = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.satellite',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var streetsSatellite = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.streets-satellite',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var topo = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox.outdoors',
+    accessToken: 'pk.eyJ1IjoiY2FybG9zZ2oiLCJhIjoiY2o2Zmo5MnRzMGgyMDJ4bXBwaWFwaDlmciJ9.EM6dygBlE6MoxIEHsvy6ag'
+});
+
+var sectional = L.tileLayer('https://d1pc149g092dlb.cloudfront.net/Maps/Tiles/Sectional/Z{z}/{y}/{x}.png',{
+    maxZoom:11,
+});
+
+mymap.addLayer(streets);
+
+{% for pt in points %}
+var launchMarker = L.circleMarker([{{pt.latitude}}, {{pt.longitude}}], {radius:5, color:"#0000ff", id:{{pt.id}}}).addTo(mymap);
+{% endfor %}
+
+var elevationDataBoundaries = L.layerGroup();
+{% for square in elevData %}
+L.polygon([[{{square.lat}}+0.5, {{square.lon}}-0.5],[{{square.lat}}+0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}-0.5]], {color:"blue"}).addTo(elevationDataBoundaries);
+{% endfor %}
+
+var weatherDataBoundaries = L.layerGroup();
+{% for square in weatherData %}
+L.polygon([[{{square.lat}}+0.5, {{square.lon}}-0.5],[{{square.lat}}+0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}-0.5]], {color:"red"}).addTo(weatherDataBoundaries);
+{% endfor %}
+
+var overlays = {"Elevation Data":elevationDataBoundaries, "Weather Data":weatherDataBoundaries,};
+var baselayers = {
+    "Streets":streets,
+    "Satellite":satellite,
+    "Streets + Satellite":streetsSatellite,
+    "Topo": topo,
+    "Airspace": sectional,
+}
+
+L.control.layers(baselayers, overlays).addTo(mymap);
+
+function onMapClick(e) {
+    latStr = Math.round(e.latlng.lat *1000)/1000
+    lonStr = Math.round(e.latlng.lng *1000)/1000
+    document.getElementById('crsLat').innerHTML=latStr;
+    document.getElementById('crsLon').innerHTML=lonStr;
+}
+
+mymap.on('mousemove', onMapClick);
+</script>
+
+{% endblock %}

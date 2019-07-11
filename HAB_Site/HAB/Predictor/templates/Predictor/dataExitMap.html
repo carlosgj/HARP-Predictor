@@ -59,32 +59,10 @@ var sectional = L.tileLayer('https://d1pc149g092dlb.cloudfront.net/Maps/Tiles/Se
 });
 
 mymap.addLayer(streets);
-{% if pred.landingLatitude %}
-var landingMarker = L.circleMarker([{{pred.landingLatitude}}, {{pred.landingLongitude}}], {radius:5, color:"#ff0000", id:{{pred.id}}}).addTo(mymap);
-landingMarker.bindPopup("{{pred.landingLatitude}}, {{pred.landingLongitude}} {{pred.landingTime}} UTC");
-landingMarker.on('mouseover', function (e) {this.openPopup();});
-landingMarker.on('mouseout', function (e) {this.closePopup();});
-{% endif %}
 
-var launchMarker = L.circleMarker([{{pred.launchPoint.latitude}}, {{pred.launchPoint.longitude}}], {radius:5, color:"#0000ff", id:{{pred.id}}}).addTo(mymap);
-launchMarker.bindPopup("{{pred.launchPoint.latitude}}, {{pred.launchPoint.longitude}} {{pred.launchTime}} UTC");
-launchMarker.on('mouseover', function (e) {this.openPopup();});
-launchMarker.on('mouseout', function (e) {this.closePopup();});
-
-{% if pred.burstLatitude %}
-var burstMarker = L.circleMarker([{{pred.burstLatitude}}, {{pred.burstLongitude}}], {radius:5, color:"#00ff00", id:{{pred.id}}}).addTo(mymap);
-burstMarker.bindPopup("{{pred.burstLatitude}}, {{pred.burstLongitude}} {{pred.burstTime}} UTC");
-burstMarker.on('mouseover', function (e) {this.openPopup();});
-burstMarker.on('mouseout', function (e) {this.closePopup();});
-{% endif %}
-
-var points = [
-{% for point in points %}
-[{{point.latitude}}, {{point.longitude}}],
+{% for pt in points %}
+var launchMarker = L.circleMarker([{{pt.latitude}}, {{pt.longitude}}], {radius:5, color:"#0000ff", id:{{pt.id}}}).addTo(mymap);
 {% endfor %}
-]
-
-var polyline = L.polyline(points, {color: 'red'}).addTo(mymap);
 
 var elevationDataBoundaries = L.layerGroup();
 {% for square in elevData %}
@@ -95,7 +73,6 @@ var weatherDataBoundaries = L.layerGroup();
 {% for square in weatherData %}
 L.polygon([[{{square.lat}}+0.5, {{square.lon}}-0.5],[{{square.lat}}+0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}+0.5],[{{square.lat}}-0.5, {{square.lon}}-0.5]], {color:"red"}).addTo(weatherDataBoundaries);
 {% endfor %}
-
 
 var overlays = {"Elevation Data":elevationDataBoundaries, "Weather Data":weatherDataBoundaries,};
 var baselayers = {
@@ -116,7 +93,6 @@ function onMapClick(e) {
 }
 
 mymap.on('mousemove', onMapClick);
-mymap.fitBounds(polyline.getBounds());
 </script>
 
 {% endblock %}

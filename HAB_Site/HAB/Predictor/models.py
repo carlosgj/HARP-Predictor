@@ -14,15 +14,21 @@ class launchLocation(models.Model):
     def __str__(self):
         return "%s (%s)"%(self.name, self.description)
 
+class BalloonParameterSet(models.Model):
+    burstAltitude = models.IntegerField("Burst altitude", null=True)
+    ascentRate = models.FloatField("Ascent rate")
+    descentRate = models.FloatField("Descent rate")
+    isActive = models.BooleanField("Active")
+
 class Prediction(models.Model):
     launchTime = models.DateTimeField("Launch time")
     
     launchPoint = models.ForeignKey(launchLocation, on_delete=models.CASCADE, null=True)
-    
+    parameters = models.ForeignKey(BalloonParameterSet, on_delete=models.CASCADE, null=True)
+
     burstTime = models.DateTimeField("Burst time", null=True)
     burstLatitude = models.FloatField("Burst latitude", null=True)
     burstLongitude = models.FloatField("Burst longitude", null=True)
-    burstAltitude = models.IntegerField("Burst altitude", null=True)
     
     landingTime = models.DateTimeField("Landing time", null=True)
     landingLatitude = models.FloatField("Landing latitude", null=True)
@@ -31,14 +37,9 @@ class Prediction(models.Model):
 
     usingPrediction = models.DateTimeField("Prediction time")
     
-    ascentRate = models.FloatField("Ascent rate")
-    descentRate = models.FloatField("Descent rate")
-
-    usingLatest = models.BooleanField("Uses latest prediction", default=False, db_index=True)
-    
     class Meta:
         index_together = [
-            ['launchTime', 'launchPoint', 'burstAltitude', 'ascentRate', 'descentRate'],
+            ['launchTime', 'launchPoint', 'parameters'],
         ]
 
 class PredictionPoint(models.Model):

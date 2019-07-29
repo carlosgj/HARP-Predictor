@@ -1,6 +1,7 @@
 import struct
 import datetime
 import logging
+import re
 from GRIBtables import *
 #logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -17,11 +18,11 @@ def parseGRIBdata(content):
     if not content[0:4]=="GRIB":
         logger.error("Invalid data: does not start with \"GRIB\".")
         return
-    gribs = content.split("GRIB")
+    gribs = re.split(r"(?:^|7777)(?:GRIB|$)", content)
     for i, chunk in enumerate(gribs):
         if chunk:
             logger.info("Parsing GRIB #%d of %d"%(i, len(gribs)))
-            results.append(parseGRIB("GRIB"+chunk))
+            results.append(parseGRIB("GRIB"+chunk+"7777"))
             #break #debugging
     return results
 
@@ -51,6 +52,7 @@ def parseGRIB(content):
         logger.info("Discipline: %s"%discipline)
     else:
         logger.error("Invalid discipline (%d)!"%disciplineIdx)
+        logger.debug(content.encode('hex'))
         return
     GRIBedition = ord(content[7])
     if GRIBedition != 2:
@@ -318,6 +320,7 @@ def parseGRIB(content):
             
         content = content[sectLength:]
         if content[:4] == "7777":
+            logger.debug("Returning %d tuples."%len(latLonTuples))
             return (gribData, latLonTuples)
             
 
@@ -328,7 +331,7 @@ if __name__=="__main__":
     logger.setLevel(logging.DEBUG)
     logger.addHandler(ch)
     #parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f010")
-    results = parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t18z.pgrb2.0p25.f026")
-    for foo in results:
-        print foo[0]
+    results = parseGRIBfile("C:\\Users\\carlosj\\Documents\\HARP\\Predictor\\Discipline40\\weathererrorl.log.1")
+    for i, foo in enumerate(results):
+        print i+1, foo[0]
     

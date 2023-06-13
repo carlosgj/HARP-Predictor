@@ -332,6 +332,6 @@ if __name__=="__main__":
     logger.addHandler(ch)
     #parseGRIBfile("C:\\Users\\carlosj\\Documents\\HAB\\Predictor\\gfs.t12z.pgrb2.0p25.f010")
     results = parseGRIBfile("C:\\Users\\carlosj\\Documents\\HARP\\Predictor\\Discipline40\\weathererrorl.log.1")
-    for i, foo in enumerate(results):
-        print i+1, foo[0]
+    #for i, foo in enumerate(results):
+        #print i+1, foo[0]
     

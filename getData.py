@@ -1,13 +1,17 @@
 from datetime import datetime, timedelta
-import urllib2
+from urllib.request import urlopen
+import urllib.error
 from ftplib import FTP
+import pymysql
+pymysql.install_as_MySQLdb()
 import MySQLdb
-import _mysql_exceptions
+#import _mysql_exceptions
+import pymysql.err
 import GRIBparser
 import logging
 from time import sleep
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("getData")
 
 def roundHalf(n):
     return str(round(n * 2) / 2)
@@ -21,9 +25,9 @@ def updateDataset(valueTime, resolution):
     if resolution == 0.5:
         resolutionStr = '0.50'
     #Table name format: gfsYYYYMMDDHH (of prediction)
-    db=MySQLdb.connect(host='localhost', user='guest', passwd='',db="test_dataset")
+    db=MySQLdb.connect(host='iris-storage', user='weatheringest', passwd='', db="Weather")
     c = db.cursor()
-    c.execute("USE test_dataset")
+    c.execute("USE Weather")
     #Get time of latest NOMADS prediction
     latestAvailable = findLatestPrediction()
     logger.info("Most recent prediction: %s"%latestAvailable.strftime('%Y%m%d%H'))
@@ -31,8 +35,8 @@ def updateDataset(valueTime, resolution):
     #print "Table should be called:", presumptiveTableName
     try:
         c.execute("SELECT 1 FROM %s LIMIT 1"%presumptiveTableName)
-    except _mysql_exceptions.ProgrammingError as e:
-        if e[0] == 1146:
+    except pymysql.err.ProgrammingError as e:
+        if e.args[0] == 1146:
             logger.info("Prediction table does not exist. Creating.")
             c.execute("CREATE TABLE %s (\
                 ValueTime DATETIME, \
@@ -177,15 +181,15 @@ def downloadFile(url):
     attemptCount = 0
     html = None
     while(attemptCount < 20):
-        print "Attempt:", attemptCount
+        logger.info("Attempt: %d"%attemptCount)
         attemptCount += 1
         try:
-            response = urllib2.urlopen(url)
+            response = urlopen(url)
             html = response.read()
-            print "html?:", (html is not None)
-        except Exception as e:
-            if str(e) == "HTTP Error 404: data file not present":
-                print "File not present. Waiting and retrying..."
+            logger.info("html?: %r"%(html is not None))
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                logger.warning("File not present. Waiting and retrying...")
                 sleep(30)
                 continue
             else:
@@ -215,12 +219,13 @@ def getAllLatestData():
     #        logger.info("Skipping %d..."%i)
         
 if __name__=="__main__":
-    logger.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
+    logging.basicConfig(level=logging.DEBUG)
+    #logger.setLevel(logging.DEBUG)
+    #ch = logging.StreamHandler()
+    #ch.setLevel(logging.INFO)
+    #formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    #ch.setFormatter(formatter)
+    #logger.addHandler(ch)
     #downloadGrib(34, -118, 20)
     #predictionTime = findLatestPrediction()
     #dataTime = datetime.strptime('2017072221', '%Y%m%d%H')
@@ -229,7 +234,7 @@ if __name__=="__main__":
     #print url 
     #print type(downloadFile(url))
     #updateDataset(dataTime)
-    logger.info("Beginning data ingest at %s..."%datetime.now().strftime('%Y%m%d %H%M%S'))
+    logger.info("Beginning data ingest at %s"%datetime.now().strftime('%Y%m%d %H%M%S'))
     getAllLatestData()
-    logger.info("Completed data ingest at %s..."%datetime.now().strftime('%Y%m%d %H%M%S'))
+    logger.info("Completed data ingest at %s"%datetime.now().strftime('%Y%m%d %H%M%S'))
     

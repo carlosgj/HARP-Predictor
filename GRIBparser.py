@@ -15,14 +15,14 @@ def parseGRIBfile(filepath):
 def parseGRIBdata(content):
     
     results = [] #list of ({GRIBdata}, [tuples]) tuples
-    if not content[0:4]=="GRIB":
+    if not content[0:4]==b"GRIB":
         logger.error("Invalid data: does not start with \"GRIB\".")
         return
-    gribs = re.split(r"(?:^|7777)(?:GRIB|$)", content)
+    gribs = re.split(rb"(?:^|7777)(?:GRIB|$)", content)
     for i, chunk in enumerate(gribs):
         if chunk:
             logger.info("Parsing GRIB #%d of %d"%(i, len(gribs)))
-            results.append(parseGRIB("GRIB"+chunk+"7777"))
+            results.append(parseGRIB(b"GRIB"+chunk+b"7777"))
             #break #debugging
     return results
 
@@ -46,7 +46,7 @@ def parseGRIB(content):
         "yScanDir": None,
         }
     parameter = None
-    disciplineIdx = ord(content[6])
+    disciplineIdx = content[6]
     discipline = disciplines.get(disciplineIdx, None)
     if discipline:
         logger.info("Discipline: %s"%discipline)
@@ -54,7 +54,7 @@ def parseGRIB(content):
         logger.error("Invalid discipline (%d)!"%disciplineIdx)
         logger.debug(content.encode('hex'))
         return
-    GRIBedition = ord(content[7])
+    GRIBedition = content[7]
     if GRIBedition != 2:
         logger.error("Invalid GRIB edition (%d)!"%GRIBedition)
     logger.debug("GRIB edition: %d"%GRIBedition)
@@ -67,7 +67,8 @@ def parseGRIB(content):
         logger.debug("\tParsing section...")
         sectLength = struct.unpack('>L', content[:4])[0]
         logger.debug("\t\tSection length: %d"%sectLength)
-        sectNum = ord(content[4])
+        print(content[:6])
+        sectNum = content[4]
         #logger.debug( "Section number:", sectNum
         if sectNum == 1:
             logger.debug("\t\tIdentification section...")
@@ -75,71 +76,71 @@ def parseGRIB(content):
             logger.debug( "\t\tOriginating center: %d"%origCenter)
             origSubCenter = struct.unpack('>H', content[7:9])[0]
             logger.debug( "\t\tOriginating subcenter: %d"%origSubCenter)
-            masterTableVersion = ord(content[9])
+            masterTableVersion = content[9]
             logger.debug( "\t\tGRIB master tables version: %d"%masterTableVersion)
-            localTableVersion = ord(content[10])
+            localTableVersion = content[10]
             logger.debug( "\t\tGRIB local tables version: %d"%localTableVersion)
-            refTimeSigIdx = ord(content[11])
+            refTimeSigIdx = content[11]
             refTimeSig = refTimeSignificances.get(refTimeSigIdx, None)
             if refTimeSig:
                 logger.debug( "\t\tReference time significance: %s"%refTimeSig)
             year = struct.unpack('>H', content[12:14])[0]
-            month = ord(content[14])
-            day = ord(content[15])
-            hour = ord(content[16])
-            minute = ord(content[17])
-            second = ord(content[18])
+            month = content[14]
+            day = content[15]
+            hour = content[16]
+            minute = content[17]
+            second = content[18]
             refTime = datetime.datetime(year, month, day, hour, minute, second)
             logger.debug( "\t\tReference time:"+str(refTime))
-            prodStatIdx = ord(content[19])
+            prodStatIdx = content[19]
             prodStat = productionStatuses.get(prodStatIdx, None)
             if prodStat:
                 logger.debug( "\t\tProduction status: %s"%prodStat)
-            dataTypeIdx = ord(content[20])
+            dataTypeIdx = content[20]
             dataType = dataTypes.get(dataTypeIdx, None)
             logger.debug( "\t\tType of processed data: %s"%dataType)
         elif sectNum == 3:
             logger.debug("\t\tGrid definition section...")
-            defSourceIdx = ord(content[5])
+            defSourceIdx = content[5]
             if defSourceIdx != 0:
                 logger.error("Grid defined by originating center")
                 return
             dataPointCount = struct.unpack('>L', content[6:10])[0]
             logger.debug( "\t\tNumber of data points: %d"%dataPointCount)
-            if ord(content[10]) != 0 or ord(content[11]) != 0:
+            if content[10] != 0 or content[11] != 0:
                 logger.error("Complex grid format. Aborting.")
                 return
             gridDefTempIdx = struct.unpack('>H', content[12:14])[0]
             gridDefTemp = gridDefTemplates.get(gridDefTempIdx, None)
             logger.debug("\t\tGrid definition template: %s"%gridDefTemp)
             if gridDefTempIdx == 0:
-                earthShapeIdx = ord(content[14])
+                earthShapeIdx = content[14]
                 earthShape = earthShapes.get(earthShapeIdx, None)
                 logger.debug("\t\tShape of earth: %s"%earthShape)
                 assert earthShapeIdx == 6
-                assert ord(content[15]) == 0
-                assert ord(content[16]) == 0
-                assert ord(content[17]) == 0
-                assert ord(content[18]) == 0
-                assert ord(content[19]) == 0
-                assert ord(content[20]) == 0
-                assert ord(content[21]) == 0
-                assert ord(content[22]) == 0
-                assert ord(content[23]) == 0
-                assert ord(content[24]) == 0
-                assert ord(content[25]) == 0
-                assert ord(content[26]) == 0
-                assert ord(content[27]) == 0
-                assert ord(content[28]) == 0
-                assert ord(content[29]) == 0
+                assert content[15] == 0
+                assert content[16] == 0
+                assert content[17] == 0
+                assert content[18] == 0
+                assert content[19] == 0
+                assert content[20] == 0
+                assert content[21] == 0
+                assert content[22] == 0
+                assert content[23] == 0
+                assert content[24] == 0
+                assert content[25] == 0
+                assert content[26] == 0
+                assert content[27] == 0
+                assert content[28] == 0
+                assert content[29] == 0
                 pointsAlongParallel = struct.unpack('>L', content[30:34])[0]
                 logger.debug("\t\tPoints along parallel: %d"%pointsAlongParallel)
                 pointsAlongMeridian = struct.unpack('>L', content[34:38])[0]
                 logger.debug("\t\tPoints along meridian: %d"%pointsAlongMeridian)
-                assert ord(content[38]) == 0
-                assert ord(content[39]) == 0
-                assert ord(content[40]) == 0
-                assert ord(content[41]) == 0
+                assert content[38] == 0
+                assert content[39] == 0
+                assert content[40] == 0
+                assert content[41] == 0
                 angleSubdivisions = struct.unpack('>L', content[42:46])[0]
                 #assert angleSubdivisions == 0xffffffff
                 firstPointLat = struct.unpack('>L', content[46:50])[0]
@@ -148,19 +149,19 @@ def parseGRIB(content):
                 firstPointLon = struct.unpack('>L', content[50:54])[0]
                 firstPointLon = convertlatlon(firstPointLon)
                 logger.debug("\t\tFirst point longitude: %f"%firstPointLon)
-                assert ord(content[54]) == 48
+                assert content[54] == 48
                 lastPointLat = struct.unpack('>L', content[55:59])[0]
                 lastPointLat = convertlatlon(lastPointLat)
                 logger.debug("\t\tLast point latitude: %f"%lastPointLat)
                 lastPointLon = struct.unpack('>L', content[59:63])[0]
                 lastPointLon = convertlatlon(lastPointLon)
                 logger.debug("\t\tLast point longitude: %f"%lastPointLon)
-                assert ord(content[71]) & 0x3F == 0 #adjacent points in W/E are consecutive
-                if ord(content[71]) & 64 == 64: #Points in the first row or column scan W to E, Points in the first row or column scan S to N, adjacent points in W/E are consecutive
+                assert content[71] & 0x3F == 0 #adjacent points in W/E are consecutive
+                if content[71] & 64 == 64: #Points in the first row or column scan W to E, Points in the first row or column scan S to N, adjacent points in W/E are consecutive
                     gribData["yScanDir"] = 1 #Points in the first row or column scan S to N
                 else:
                     gribData["yScanDir"] = -1 #Points in the first row or column scan N to S
-                if ord(content[71]) & 128 == 128:
+                if content[71] & 128 == 128:
                     gribData["xScanDir"] = -1 #Points in the first row or column scan E to W
                 else:
                     gribData["xScanDir"] = 1 #Points in the first row or column scan W to E
@@ -181,13 +182,13 @@ def parseGRIB(content):
             else:
                 logger.error("\tProduct definition template %d not implemented. Aborting."%prodDefTempIdx)
                 return
-            paramCatIdx = ord(content[9])
+            paramCatIdx = content[9]
             disciplineCategories = parameterCategories.get(disciplineIdx, None)
             if discipline and (disciplineCategories is not None):
                 paramCategory = disciplineCategories.get(paramCatIdx, None)
                 if paramCategory:
                     logger.debug("\t\tParameter category: %s"%paramCategory["Category Name"])
-                    parameterIdx = ord(content[10])
+                    parameterIdx = content[10]
                     parameter = paramCategory.get(parameterIdx, None)
                     if parameter:
                         logger.debug("\t\tParameter: %s"%parameter)
@@ -201,30 +202,30 @@ def parseGRIB(content):
             else:
                 logger.error("\tParameter categories for discipline %d not implemented. Aborting."%disciplineIdx)
                 return
-            genProcIdx = ord(content[11])
+            genProcIdx = content[11]
             genProc = generatingProcesses.get(genProcIdx, None)
             if genProc:
                 logger.debug("\t\tGenerating process: %s"%genProc)
-            assert ord(content[17]) ==1
+            assert content[17] ==1
             forecastHour = struct.unpack('>L',content[18:22])[0]
             logger.debug("\t\tForecast hour: %d"%forecastHour)
             interval = datetime.timedelta(hours=forecastHour)
             gribData["valuetime"]=refTime+interval
             try:
-                assert ord(content[22]) == 100
+                assert content[22] == 100
             except:
-                logger.error("content[22] (type of first fixed surface) = %d. Expected 100."%ord(content[22]))
+                logger.error("content[22] (type of first fixed surface) = %d. Expected 100."%content[22])
                 return
             try:
-                assert ord(content[23]) == 0
+                assert content[23] == 0
             except:
-                logger.error("content[23] (scale of first fixed surface) = %d. Expected 0."%ord(content[23]))
+                logger.error("content[23] (scale of first fixed surface) = %d. Expected 0."%content[23])
                 return
             mbPress = struct.unpack('>L', content[24:28])[0]
             mbPress /= 100.
             logger.debug("\t\tPressure (mb): %f"%mbPress)
             gribData["isobar"] = int(mbPress)
-            assert ord(content[28]) == 255
+            assert content[28] == 255
             
         elif sectNum == 5:
             logger.debug("\t\tData representation section...")
@@ -252,12 +253,12 @@ def parseGRIB(content):
             if (decimalScaleFactor & 0x8000) != 0:
                 logger.warning("\t\tDSF might be negative!")
             
-            bitsPerPoint = ord(content[19])
+            bitsPerPoint = content[19]
             logger.debug("\t\tBits per datapoint: %d"%bitsPerPoint)
                 
         elif sectNum == 6:
             logger.debug("\t\tBit map section...")
-            assert ord(content[5]) == 255
+            assert content[5] == 255
         elif sectNum == 7:
             logger.debug("\t\tData section...")
             blob = content[5:sectLength]
@@ -265,7 +266,7 @@ def parseGRIB(content):
             binArray = []
             dataPoints = []
             for char in blob:
-                binArray += [(ord(char)>>n)&1 for n in range(0,8)[::-1]]
+                binArray += [(char>>n)&1 for n in range(0,8)[::-1]]
             for i in range(numDataPoints):
                 thisPointBinArray = binArray[i*bitsPerPoint:(i+1)*bitsPerPoint]
                 thisPoint = 0
@@ -319,7 +320,7 @@ def parseGRIB(content):
             #logger.debug( content[:20]
             
         content = content[sectLength:]
-        if content[:4] == "7777":
+        if content[:4] == b"7777":
             logger.debug("Returning %d tuples."%len(latLonTuples))
             return (gribData, latLonTuples)
             

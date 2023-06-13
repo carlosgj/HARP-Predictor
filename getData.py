@@ -74,9 +74,9 @@ def updateDataset(valueTime, resolution):
             for grib in processedData:
                 tupleCount += len(grib[1])
         except:
-            errorfile = open("/var/log/weathererror.log", 'w')
-            errorfile.write(data)
-            errorfile.close()
+            #errorfile = open("/var/log/weathererror.log", 'w')
+            #errorfile.write(data)
+            #errorfile.close()
             raise
         logger.info("Processing a total of %d tuples..."%tupleCount)
         for i, grib in enumerate(processedData):
@@ -166,15 +166,16 @@ def generateURL(latTop, latBot, longLeft, longRight, dataTime, predictionTime, r
         bigURL += "lev_475_mb=on&lev_525_mb=on&lev_575_mb=on&lev_625_mb=on&lev_675_mb=on&lev_725_mb=on&lev_775_mb=on&"
         bigURL += "lev_825_mb=on&lev_875_mb=on&"
     bigURL += "var_HGT=on&var_TMP=on&var_UGRD=on&var_VGRD=on&subregion=&leftlon="
-    bigURL += longLeft;
-    bigURL += "&rightlon=";
-    bigURL += longRight;
-    bigURL += "&toplat=";
-    bigURL += latTop;
-    bigURL += "&bottomlat=";
-    bigURL += latBot;
-    bigURL += "&dir=%2Fgfs.";
-    bigURL += forecastCycle;
+    bigURL += longLeft
+    bigURL += "&rightlon="
+    bigURL += longRight
+    bigURL += "&toplat="
+    bigURL += latTop
+    bigURL += "&bottomlat="
+    bigURL += latBot
+    bigURL += "&dir=%2Fgfs."
+    bigURL += forecastCycle
+    bigURL += "%2Fatmos"
     return bigURL
     
 def downloadFile(url):

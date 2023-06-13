@@ -1,7 +1,12 @@
+import logging
+import pymysql
+pymysql.install_as_MySQLdb()
 import MySQLdb
 import time
 
-db = MySQLdb.connect(host='localhost', user='root', passwd='carlos94', db='test_dataset')
+logger = logging.getLogger("JoinDatabases")
+
+db = MySQLdb.connect(host='iris-storage', user='weatheringest', passwd='', db='Weather')
 
 c = db.cursor()
 
@@ -13,10 +18,10 @@ index = {}
 for foo in raw_idx:
 	index[foo[0]] = foo[1]
 
-#print index
+print(index)
 i = 0
-for timeStr, predTime in index.iteritems():
-	print "Processing %s (%d of %d)..."%(timeStr, i, len(index))
+for timeStr, predTime in index.items():
+	logger.info("Processing %s (%d of %d)..."%(timeStr, i, len(index)))
 	c.execute("""DROP TEMPORARY TABLE IF EXISTS tmp""")
 	c.execute("""CREATE TEMPORARY TABLE tmp SELECT * FROM %s"""%timeStr) 
 	c.execute("""ALTER TABLE tmp ADD PredictionTime datetime""")
